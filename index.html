@@ -4,8 +4,22 @@
   <meta charset="UTF-8">
   <title>Super Private Browser</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #111827; }
+    .header-info { font-size: 0.75rem; }
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    .status-active { background-color: #168e41; color: white; }
+    .status-blocked { background-color: #991b1b; color: white; }
+  </style>
 </head>
 <body class="bg-gray-900 text-white h-screen overflow-hidden">
+<<<<<<< HEAD
   <div class="h-36 bg-gray-800 p-4 flex flex-col gap-4">
     <div class="flex gap-3">
 <<<<<<< HEAD
@@ -28,96 +42,105 @@
       <button onclick="api.reload()"    class="bg-gray-700 px-5 py-3 rounded hover:bg-gray-600">↻</button>
       <input id="url" class="flex-1 bg-gray-700 p-3 rounded text-lg" placeholder="اكتب رابط أو ابحث..." onkeydown="if(event.key==='Enter') go()">
     </div>
+=======
+  <div class="h-full flex flex-col">
+    <!-- الشريط العلوي -->
+    <div class="bg-gradient-to-r from-blue-900 to-purple-900 p-3 shadow-lg">
+      <div class="flex gap-3 mb-2">
+        <button onclick="api.goBack()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">←</button>
+        <button onclick="api.goForward()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">→</button>
+        <button onclick="api.reload()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">↻</button>
+        <input id="url" class="flex-1 bg-gray-700 p-2 rounded text-white outline-none" placeholder="أدخل رابط..." onkeydown="if(event.key==='Enter') api.navigate(this.value.trim())">
+      </div>
+>>>>>>> 4091864 (bbbob)
 
-    <!-- معلومات الموقع -->
-    <div class="grid grid-cols-4 gap-4 text-sm">
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>IP:</strong> <span id="s-ip" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>البلد:</strong> <span id="s-country" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>المدينة:</strong> <span id="s-city" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>إحداثيات:</strong> <span id="s-coords" class="text-green-400">?</span>
+      <!-- المعلومات السريعة -->
+      <div class="grid grid-cols-6 gap-2 text-xs">
+        <div class="bg-gray-800 p-2 rounded">
+          <strong>IP:</strong> <span id="s-ip" class="text-green-400">?</span>
+        </div>
+        <div class="bg-gray-800 p-2 rounded">
+          <strong>البلد:</strong> <span id="s-country" class="text-green-400">?</span>
+        </div>
+        <div class="bg-gray-800 p-2 rounded">
+          <strong>DNS:</strong> <span id="s-dns" class="text-blue-400">Cloudflare</span>
+        </div>
+        <div class="bg-gray-800 p-2 rounded">
+          <strong>تزوير:</strong> <span class="status-badge status-active">✓ نشط</span>
+        </div>
+        <div class="bg-gray-800 p-2 rounded">
+          <strong>خصوصية:</strong> <span class="status-badge status-active">✓ مفعل</span>
+        </div>
+        <div class="bg-gray-800 p-2 rounded">
+          <strong>Proxy:</strong> <span id="s-proxy" class="text-gray-400">معطل</span>
+        </div>
       </div>
     </div>
 
-    <!-- إعدادات التزوير -->
-    <div class="grid grid-cols-8 gap-2 text-xs">
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>UA:</strong> <span id="s-ua" class="text-green-400 truncate block">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>Canvas:</strong> <span id="s-canvas" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>WebGL V:</strong> <span id="s-webgl-v" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>WebGL R:</strong> <span id="s-webgl-r" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>Fonts:</strong> <span id="s-fonts" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>Cores:</strong> <span id="s-cores" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>Memory:</strong> <span id="s-memory" class="text-green-400">?</span>
-      </div>
-      <div class="bg-gray-700 p-2 rounded">
-        <strong>Screen:</strong> <span id="s-screen" class="text-green-400">?</span>
-      </div>
-    </div>
+    <!-- منطقة المتصفح -->
+    <div class="flex-1 overflow-hidden"></div>
 
-    <!-- السجلات -->
-    <div class="bg-gray-700 p-2 rounded flex-1 overflow-y-auto">
-      <strong class="block mb-1">السجلات:</strong>
-      <ul id="logs" class="text-xs space-y-1">
-      </ul>
+    <!-- الشريط السفلي -->
+    <div class="bg-gray-800 border-t border-gray-700 p-3 text-xs">
+      <div class="grid grid-cols-8 gap-2">
+        <div class="bg-gray-700 p-2 rounded">
+          <strong>UA:</strong> <span id="s-ua" class="truncate block text-gray-300 text-xs">-</span>
+        </div>
+        <div class="bg-gray-700 p-2 rounded">
+          <strong>Canvas:</strong> <span id="s-canvas" class="text-blue-400">-</span>
+        </div>
+        <div class="bg-gray-700 p-2 rounded">
+          <strong>WebGL V:</strong> <span id="s-webgl-v" class="text-blue-400 truncate">-</span>
+        </div>
+        <div class="bg-gray-700 p-2 rounded">
+          <strong>WebGL R:</strong> <span id="s-webgl-r" class="text-blue-400 truncate">-</span>
+        </div>
+        <div class="bg-gray-700 p-2 rounded">
+          <strong>Fonts:</strong> <span id="s-fonts" class="text-blue-400 truncate">-</span>
+        </div>
+        <div class="bg-gray-700 p-2 rounded">
+          <strong>Cores:</strong> <span id="s-cores" class="text-orange-400">?</span>
+        </div>
+        <div class="bg-gray-700 p-2 rounded">
+          <strong>Memory:</strong> <span id="s-memory" class="text-orange-400">?</span>
+        </div>
+        <div class="bg-gray-700 p-2 rounded">
+          <strong>Screen:</strong> <span id="s-screen" class="text-orange-400">?</span>
+        </div>
+      </div>
     </div>
 >>>>>>> 6c17ebf (Add files via upload)
   </div>
 
   <script>
-    const urlInput = document.getElementById('url');
-
-    function go() {
-      api.navigate(urlInput.value.trim());
-    }
-
-    window.api.onGeoUpdate(d => {
-      document.getElementById('s-ip').textContent     = d.ip      || '?';
+    // تحديثات الموقع
+    window.api?.onGeoUpdate?.(d => {
+      document.getElementById('s-ip').textContent = d.ip || '?';
       document.getElementById('s-country').textContent = d.country || '?';
-      document.getElementById('s-city').textContent    = d.city    || '?';
-      document.getElementById('s-coords').textContent  = (d.lat && d.lon) ? `${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}` : '?';
     });
 <<<<<<< HEAD
 =======
 
-    window.api.onSpoofUpdate(d => {
-      document.getElementById('s-ua').textContent = d.ua;
-      document.getElementById('s-canvas').textContent = d.canvasNoise;
-      document.getElementById('s-webgl-v').textContent = d.webglVendor;
-      document.getElementById('s-webgl-r').textContent = d.webglRenderer;
-      document.getElementById('s-fonts').textContent = d.fonts.join(', ');
-      document.getElementById('s-cores').textContent = d.hardwareConcurrency;
-      document.getElementById('s-memory').textContent = d.deviceMemory;
+    // تحديثات التزوير
+    window.api?.onSpoofUpdate?.(d => {
+      document.getElementById('s-ua').textContent = (d.ua || '').substring(0, 20) + '...';
+      document.getElementById('s-canvas').textContent = (d.canvasNoise * 100).toFixed(1) + '%';
+      document.getElementById('s-webgl-v').textContent = (d.webglVendor || '').substring(0, 10);
+      document.getElementById('s-webgl-r').textContent = (d.webglRenderer || '').substring(0, 10);
+      document.getElementById('s-fonts').textContent = d.fonts?.[0] || '-';
+      document.getElementById('s-cores').textContent = d.hardwareConcurrency || '?';
+      document.getElementById('s-memory').textContent = d.deviceMemory || '?';
       document.getElementById('s-screen').textContent = `${d.screenWidth}x${d.screenHeight}`;
     });
 
-    window.api.onLogUpdate(logs => {
-      const ul = document.getElementById('logs');
-      ul.innerHTML = '';
-      logs.forEach(l => {
-        const li = document.createElement('li');
-        li.textContent = `[${l.time}] ${l.msg}`;
-        li.className = l.isError ? 'text-red-400' : 'text-green-400';
-        ul.appendChild(li);
-      });
+    // تحديثات DNS
+    window.api?.onDNSUpdate?.((d) => {
+      document.getElementById('s-dns').textContent = d.provider || 'DNS';
+    });
+
+    // تحديثات السجلات
+    window.api?.onLogUpdate?.((logs) => {
+      // يمكن إضافة عرض السجلات في الأسفل إذا لزم الأمر
     });
 >>>>>>> 6c17ebf (Add files via upload)
   </script>
