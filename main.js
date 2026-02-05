@@ -548,16 +548,31 @@ function updatePrivacySettings(partial) {
 
 function buildProxyConfig(input) {
   if (!input || !input.host) return null;
+  const host = String(input.host).trim();
+  if (!host || host.includes(' ')) return null;
+  const parsedPort = parseInt(input.port, 10);
+  if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+    return null;
+  }
   return {
     type: input.type || 'http',
-    host: input.host,
-    port: parseInt(input.port, 10) || 80,
+    host,
+    port: parsedPort,
     username: input.username || '',
     password: input.password || '',
     authEnabled: !!(input.authEnabled || input.username || input.password),
     bypassLocal: input.bypassLocal !== false,
     bypassRules: input.bypassRules || ''
   };
+}
+
+function buildProxyRules(config) {
+  if (!config) return '';
+  const hostPort = `${config.host}:${config.port}`;
+  if (config.type === 'socks5' || config.type === 'socks4' || config.type === 'socks') {
+    return `${config.type}://${hostPort}`;
+  }
+  return `http=${hostPort};https=${hostPort}`;
 }
 
 const PROXY_STORE = path.join(app.getPath('userData'), 'proxy-profiles.json');
@@ -629,7 +644,6 @@ async function applyProxyConfig(config) {
     }
     return;
   }
-  const proxyUrl = `${config.type}://${config.host}:${config.port}`;
   const bypassEntries = [];
   if (config.bypassLocal) {
     bypassEntries.push('<local>', 'localhost', '127.0.0.1', '[::1]', '*.local', '*.internal');
@@ -643,7 +657,7 @@ async function applyProxyConfig(config) {
   }
   try {
     await sessionRef.setProxy({
-      proxyRules: proxyUrl,
+      proxyRules: buildProxyRules(config),
       proxyBypassRules: bypassEntries.join(';')
     });
   } catch (err) {
@@ -657,7 +671,6 @@ async function testProxyConnection(config) {
   if (!config) {
     return { ok: false, error: 'بيانات البروكسي غير مكتملة' };
   }
-  const proxyUrl = `${config.type}://${config.host}:${config.port}`;
   const bypassEntries = [];
   if (config.bypassLocal) {
     bypassEntries.push('<local>', 'localhost', '127.0.0.1', '[::1]', '*.local', '*.internal');
@@ -670,7 +683,7 @@ async function testProxyConnection(config) {
       .forEach(entry => bypassEntries.push(entry));
   }
   await sessionRef.setProxy({
-    proxyRules: proxyUrl,
+    proxyRules: buildProxyRules(config),
     proxyBypassRules: bypassEntries.join(';')
   });
 
@@ -867,6 +880,10 @@ ipcMain.on('set-proxy', async (event, config) => {
   }
 
   proxyConfig = buildProxyConfig(config);
+  if (!proxyConfig) {
+    addLog('بيانات البروكسي غير صالحة', true);
+    return;
+  }
 
   await applyProxyConfig(proxyConfig);
 
