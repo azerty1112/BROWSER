@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Super Private Browser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white h-screen overflow-hidden">
+  <div class="h-36 bg-gray-800 p-4 flex flex-col gap-4">
+    <div class="flex gap-3">
+      <button onclick="api.goBack()"    class="bg-gray-700 px-5 py-3 rounded">←</button>
+      <button onclick="api.goForward()" class="bg-gray-700 px-5 py-3 rounded">→</button>
+      <button onclick="api.reload()"    class="bg-gray-700 px-5 py-3 rounded">↻</button>
+      <input id="url" class="flex-1 bg-gray-700 p-3 rounded text-lg" placeholder="اكتب رابط أو ابحث..." onkeydown="if(event.key==='Enter') go()">
+    </div>
+  </div>
+
+  <div class="fixed right-0 top-0 h-full w-72 bg-gray-800 p-5 overflow-y-auto">
+    <h3 class="text-xl text-blue-400 mb-5">معلومات الموقع</h3>
+    <p>IP: <span id="s-ip" class="text-green-300"></span></p>
+    <p>البلد: <span id="s-country"></span></p>
+    <p>المدينة: <span id="s-city"></span></p>
+    <p>إحداثيات: <span id="s-coords"></span></p>
+  </div>
+
+  <script>
+    const urlInput = document.getElementById('url');
+
+    function go() {
+      api.navigate(urlInput.value.trim());
+    }
+
+    window.api.onGeoUpdate(d => {
+      document.getElementById('s-ip').textContent     = d.ip      || '?';
+      document.getElementById('s-country').textContent = d.country || '?';
+      document.getElementById('s-city').textContent    = d.city    || '?';
+      document.getElementById('s-coords').textContent  = (d.lat && d.lon) ? `${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}` : '?';
+    });
+  </script>
+</body>
+</html>
