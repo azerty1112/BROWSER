@@ -73,11 +73,13 @@ const GEO_DB   = path.join(__dirname, 'db/GeoLite2-City.mmdb');
 const CSV_FILE = path.join(__dirname, 'countries-data.csv');
 
 // ─── جلب بيانات الموقع ───
-async function fetchGeoData() {
+async function fetchGeoData(options = {}) {
   try {
-    if (!fetchFn) throw new Error('fetch is not available');
+    const { sessionRef, applyToSpoof = false } = options;
+    const fetcher = sessionRef?.fetch ? (url, opts) => sessionRef.fetch(url, opts) : fetchFn;
+    if (!fetcher) throw new Error('fetch is not available');
     await loadCountries();
-    const res = await fetchFn('https://api.myip.com');
+    const res = await fetcher('https://api.myip.com');
     const data = await res.json();
     geoData.ip = data.ip || 'غير معروف';
     const rawCountry = data.country || '?';
@@ -110,17 +112,27 @@ async function fetchGeoData() {
     geoData.city = record.city?.names?.en || '?';
     geoData.lat  = record.location?.latitude  || 0;
     geoData.lon  = record.location?.longitude || 0;
+    geoData.timezone = record.location?.time_zone || '';
     geoData.street = '';
     geoData.postcode = '';
 
     // Nominatim reverse (اختياري - بطيء نسبياً)
-    if (fetchFn && geoData.lat && geoData.lon) {
-      const nom = await fetchFn(
+    if (fetcher && geoData.lat && geoData.lon) {
+      const nom = await fetcher(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${geoData.lat}&lon=${geoData.lon}&zoom=16`
       ).then(r => r.json());
       geoData.details = nom.address || {};
       geoData.street = geoData.details.road || geoData.details.neighbourhood || '';
       geoData.postcode = geoData.details.postcode || '';
+    }
+
+    if (applyToSpoof) {
+      applyGeoToSpoof(geoData);
+    }
+
+    if (geoData.ip) {
+      controlWin?.webContents.send('webrtc-ip-update', geoData.ip);
+      mainWin?.webContents.send('webrtc-ip-update', geoData.ip);
     }
 
     // إرسال البيانات إلى النوافذ
@@ -131,6 +143,7 @@ async function fetchGeoData() {
     console.error('خطأ في جلب Geo:', err.message);
     geoData = { error: err.message };
   }
+  return geoData;
 }
 
 // ─── نافذة التحكم (تظهر أولاً) ───
@@ -172,7 +185,7 @@ function createControlWindow() {
 }
 
 // ─── بدء النافذة الرئيسية + تبويب واحد ───
-function startBrowser() {
+async function startBrowser() {
   if (mainWin) return;
 
   mainWin = new BrowserWindow({
@@ -232,9 +245,11 @@ function startBrowser() {
   mainView.setAutoResize({ width: true, height: true });
 
   registerNetworkHandlers(mainView.webContents.session);
-  applyProxyConfig(proxyConfig);
+  await applyProxyConfig(proxyConfig);
   if (activeProxyProfileId) {
-    selectProxyProfile(activeProxyProfileId);
+    await selectProxyProfile(activeProxyProfileId);
+  } else {
+    await waitForProxyAndSyncGeo();
   }
 
   mainView.webContents.loadURL('https://www.google.com');
@@ -262,7 +277,13 @@ app.on('window-all-closed', () => {
 // ثم كل ipcMain.on تأتي بعد ذلك
 ipcMain.on('start-browser', startBrowser);
 // ...
-ipcMain.on('refresh-geo', fetchGeoData);
+ipcMain.on('refresh-geo', () => {
+  if (mainView) {
+    fetchGeoData({ sessionRef: mainView.webContents.session, applyToSpoof: true });
+    return;
+  }
+  fetchGeoData({ applyToSpoof: true });
+});
 
 ipcMain.on('navigate', (event, url) => {
   if (mainView) {
@@ -351,11 +372,24 @@ const SCREEN_RESOLUTIONS = [
 ];
 
 const LANGUAGES = ['en-US', 'en-GB', 'fr-FR', 'de-DE', 'es-ES', 'ar-SA'];
+const LANGUAGE_SETS = [
+  ['en-US', 'en'],
+  ['en-GB', 'en'],
+  ['fr-FR', 'fr'],
+  ['de-DE', 'de'],
+  ['es-ES', 'es'],
+  ['ar-SA', 'ar']
+];
 
 const TIMEZONES = [
   'UTC', 'America/New_York', 'Europe/London', 'Asia/Tokyo', 
   'Australia/Sydney', 'America/Los_Angeles'
 ];
+
+const DO_NOT_TRACK_VALUES = ['1', '0', 'unspecified'];
+const TOUCH_POINTS = [0, 1, 2, 5];
+const DEVICE_PIXEL_RATIOS = [1, 1.25, 1.5, 2];
+const COLOR_DEPTHS = [24, 30, 32];
 
 let spoofData = {
   ua: USER_AGENTS[0],
@@ -367,14 +401,41 @@ let spoofData = {
   deviceMemory: 8,
   screenWidth: 1920,
   screenHeight: 1080,
+  screenAvailWidth: 1920,
+  screenAvailHeight: 1040,
+  colorDepth: 24,
+  devicePixelRatio: 1,
   timezone: 'UTC',
   language: 'en-US',
+  languages: ['en-US', 'en'],
   platform: 'Win32',
   vendor: 'Google Inc.',
   deviceModel: 'PC',
   connection: NETWORK_PROFILES[0],
+  doNotTrack: '1',
+  maxTouchPoints: 0,
+  webdriver: false,
   tlsVersion: 'TLSv1.3',
   tlsCipher: 'TLS_AES_256_GCM_SHA384'
+};
+
+const COUNTRY_LANGUAGE_MAP = {
+  SA: 'ar-SA',
+  AE: 'ar-AE',
+  EG: 'ar-EG',
+  MA: 'ar-MA',
+  DZ: 'ar-DZ',
+  QA: 'ar-QA',
+  KW: 'ar-KW',
+  TR: 'tr-TR',
+  FR: 'fr-FR',
+  DE: 'de-DE',
+  ES: 'es-ES',
+  IT: 'it-IT',
+  GB: 'en-GB',
+  US: 'en-US',
+  CA: 'en-CA',
+  AU: 'en-AU'
 };
 
 function generateRandomSpoof() {
@@ -383,6 +444,7 @@ function generateRandomSpoof() {
   const fonts = FONTS_LIST[Math.floor(Math.random() * FONTS_LIST.length)];
   const resolution = SCREEN_RESOLUTIONS[Math.floor(Math.random() * SCREEN_RESOLUTIONS.length)];
   const language = LANGUAGES[Math.floor(Math.random() * LANGUAGES.length)];
+  const languageSet = LANGUAGE_SETS[Math.floor(Math.random() * LANGUAGE_SETS.length)];
   const timezone = TIMEZONES[Math.floor(Math.random() * TIMEZONES.length)];
   const cores = Math.random() > 0.5 ? 4 : 8;
   const memory = Math.random() > 0.5 ? 4 : 8;
@@ -391,6 +453,11 @@ function generateRandomSpoof() {
   const platform = isMac ? 'MacIntel' : (ua.includes('Win') ? 'Win32' : 'Linux x86_64');
   const vendor = isMac ? 'Apple Computer, Inc.' : 'Google Inc.';
   const deviceModel = isMac ? DEVICE_MODELS[Math.floor(Math.random() * DEVICE_MODELS.length)] : 'PC';
+  const dpr = DEVICE_PIXEL_RATIOS[Math.floor(Math.random() * DEVICE_PIXEL_RATIOS.length)];
+  const colorDepth = COLOR_DEPTHS[Math.floor(Math.random() * COLOR_DEPTHS.length)];
+  const doNotTrack = DO_NOT_TRACK_VALUES[Math.floor(Math.random() * DO_NOT_TRACK_VALUES.length)];
+  const maxTouchPoints = TOUCH_POINTS[Math.floor(Math.random() * TOUCH_POINTS.length)];
+  const availHeight = Math.max(0, resolution.height - Math.floor(40 + Math.random() * 80));
 
   return {
     ua,
@@ -402,15 +469,40 @@ function generateRandomSpoof() {
     deviceMemory: memory,
     screenWidth: resolution.width,
     screenHeight: resolution.height,
+    screenAvailWidth: resolution.width,
+    screenAvailHeight: availHeight,
+    colorDepth,
+    devicePixelRatio: dpr,
     timezone,
     language,
+    languages: languageSet,
     platform,
     vendor,
     deviceModel,
     connection,
+    doNotTrack,
+    maxTouchPoints,
+    webdriver: false,
     tlsVersion: 'TLSv1.3',
     tlsCipher: 'TLS_AES_256_GCM_SHA384'
   };
+}
+
+function applyGeoToSpoof(currentGeo) {
+  if (!currentGeo || currentGeo.error) return;
+  const updates = {};
+  if (currentGeo.timezone) {
+    updates.timezone = currentGeo.timezone;
+  }
+  const lang = COUNTRY_LANGUAGE_MAP[currentGeo.countryCode];
+  if (lang) {
+    updates.language = lang;
+    updates.languages = [lang, lang.split('-')[0]];
+  }
+  if (Object.keys(updates).length === 0) return;
+  spoofData = { ...spoofData, ...updates };
+  sendSpoofUpdate();
+  addLog('تم تحديث بيانات التزوير بناءً على الموقع الجغرافي', false);
 }
 
 function sendSpoofUpdate() {
@@ -454,6 +546,20 @@ function updatePrivacySettings(partial) {
   sendPrivacyUpdate();
 }
 
+function buildProxyConfig(input) {
+  if (!input || !input.host) return null;
+  return {
+    type: input.type || 'http',
+    host: input.host,
+    port: parseInt(input.port, 10) || 80,
+    username: input.username || '',
+    password: input.password || '',
+    authEnabled: !!(input.authEnabled || input.username || input.password),
+    bypassLocal: input.bypassLocal !== false,
+    bypassRules: input.bypassRules || ''
+  };
+}
+
 const PROXY_STORE = path.join(app.getPath('userData'), 'proxy-profiles.json');
 
 function loadProxyProfiles() {
@@ -477,25 +583,50 @@ function saveProxyProfiles() {
   }
 }
 
-function selectProxyProfile(profileId) {
+async function waitForProxyAndSyncGeo() {
+  if (!mainView) return;
+  const sessionRef = mainView.webContents.session;
+  if (!proxyConfig) {
+    await fetchGeoData({ sessionRef, applyToSpoof: true });
+    return;
+  }
+  addLog('جاري انتظار تشغيل البروكسي...', false);
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const result = await fetchGeoData({ sessionRef, applyToSpoof: true });
+    if (result && !result.error) {
+      addLog('✓ تم التحقق من البروكسي وتحديث الموقع', false);
+      return;
+    }
+    if (attempt < attempts) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  }
+  addLog('فشل التحقق من البروكسي بعد عدة محاولات', true);
+}
+
+async function selectProxyProfile(profileId) {
   const profile = proxyProfiles.find(item => item.id === profileId);
   if (!profile) return;
   activeProxyProfileId = profileId;
   proxyConfig = { ...profile.config };
-  applyProxyConfig(proxyConfig);
+  await applyProxyConfig(proxyConfig);
   sendProxyUpdate();
   sendProxyProfilesUpdate();
   saveProxyProfiles();
   addLog(`تم تفعيل بروكسي محفوظ: ${profile.name}`, false);
+  await waitForProxyAndSyncGeo();
 }
 
-function applyProxyConfig(config) {
+async function applyProxyConfig(config) {
   if (!mainView) return;
   const sessionRef = mainView.webContents.session;
   if (!config) {
-    sessionRef.setProxy({ proxyRules: '' }).catch(err => {
+    try {
+      await sessionRef.setProxy({ proxyRules: '' });
+    } catch (err) {
       addLog(`خطأ في تعطيل البروكسي: ${err.message}`, true);
-    });
+    }
     return;
   }
   const proxyUrl = `${config.type}://${config.host}:${config.port}`;
@@ -510,12 +641,55 @@ function applyProxyConfig(config) {
       .filter(Boolean)
       .forEach(entry => bypassEntries.push(entry));
   }
-  sessionRef.setProxy({
+  try {
+    await sessionRef.setProxy({
+      proxyRules: proxyUrl,
+      proxyBypassRules: bypassEntries.join(';')
+    });
+  } catch (err) {
+    addLog(`خطأ في تطبيق البروكسي: ${err.message}`, true);
+  }
+}
+
+async function testProxyConnection(config) {
+  const sessionRef = session.fromPartition('persist:proxy-test');
+  await sessionRef.setProxy({ proxyRules: '' });
+  if (!config) {
+    return { ok: false, error: 'بيانات البروكسي غير مكتملة' };
+  }
+  const proxyUrl = `${config.type}://${config.host}:${config.port}`;
+  const bypassEntries = [];
+  if (config.bypassLocal) {
+    bypassEntries.push('<local>', 'localhost', '127.0.0.1', '[::1]', '*.local', '*.internal');
+  }
+  if (config.bypassRules) {
+    config.bypassRules
+      .split(/[;,]+/)
+      .map(entry => entry.trim())
+      .filter(Boolean)
+      .forEach(entry => bypassEntries.push(entry));
+  }
+  await sessionRef.setProxy({
     proxyRules: proxyUrl,
     proxyBypassRules: bypassEntries.join(';')
-  }).catch(err => {
-    addLog(`خطأ في تطبيق البروكسي: ${err.message}`, true);
   });
+
+  try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeout = setTimeout(() => controller?.abort(), 8000);
+    const response = await sessionRef.fetch('https://api.myip.com', {
+      signal: controller?.signal
+    });
+    clearTimeout(timeout);
+    const data = await response.json();
+    return {
+      ok: true,
+      ip: data.ip || '',
+      country: data.country || ''
+    };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 }
 
 const TRACKER_PATTERNS = [
@@ -536,6 +710,11 @@ const AD_PATTERNS = [
   'adserver',
   'banner'
 ];
+
+function getHeaderValue(headers, name) {
+  const target = name.toLowerCase();
+  return Object.keys(headers).find(key => key.toLowerCase() === target);
+}
 
 function matchesPattern(url, patterns) {
   return patterns.some(pattern => url.includes(pattern));
@@ -560,6 +739,41 @@ function isThirdPartyCookie(details) {
   } catch (e) {
     return false;
   }
+}
+
+function buildSmartHeaders(url, incoming = {}) {
+  const headers = { ...incoming };
+  const langKey = getHeaderValue(headers, 'accept-language') || 'Accept-Language';
+  const uaKey = getHeaderValue(headers, 'user-agent') || 'User-Agent';
+  const dntKey = getHeaderValue(headers, 'dnt') || 'DNT';
+  const chUaKey = getHeaderValue(headers, 'sec-ch-ua') || 'sec-ch-ua';
+  const chMobileKey = getHeaderValue(headers, 'sec-ch-ua-mobile') || 'sec-ch-ua-mobile';
+  const chPlatformKey = getHeaderValue(headers, 'sec-ch-ua-platform') || 'sec-ch-ua-platform';
+
+  const primaryLang = spoofData.language || 'en-US';
+  const secondaryLang = spoofData.languages?.[1] || primaryLang.split('-')[0] || 'en';
+  headers[langKey] = `${primaryLang},${secondaryLang};q=0.9`;
+  headers[uaKey] = spoofData.ua || headers[uaKey];
+  headers[dntKey] = spoofData.doNotTrack === '1' ? '1' : '0';
+
+  const isMac = (spoofData.platform || '').toLowerCase().includes('mac');
+  const isWin = (spoofData.platform || '').toLowerCase().includes('win');
+  const platformName = isMac ? 'macOS' : (isWin ? 'Windows' : 'Linux');
+  headers[chUaKey] = `"Chromium";v="120", "Not(A:Brand";v="24", "Google Chrome";v="120"`;
+  headers[chMobileKey] = '?0';
+  headers[chPlatformKey] = `"${platformName}"`;
+
+  try {
+    const urlRef = new URL(url);
+    const refererKey = getHeaderValue(headers, 'referer') || 'Referer';
+    if (!headers[refererKey]) {
+      headers[refererKey] = `${urlRef.origin}/`;
+    }
+  } catch (err) {
+    // ignore bad URLs
+  }
+
+  return headers;
 }
 
 function registerNetworkHandlers(sessionRef) {
@@ -615,6 +829,14 @@ function registerNetworkHandlers(sessionRef) {
     });
     return callback({ responseHeaders });
   });
+
+  sessionRef.webRequest.onBeforeSendHeaders((details, callback) => {
+    if (!details.requestHeaders) {
+      return callback({ requestHeaders: details.requestHeaders });
+    }
+    const requestHeaders = buildSmartHeaders(details.url, details.requestHeaders);
+    return callback({ requestHeaders });
+  });
 }
 
 // ─── معالج التزوير ───
@@ -633,49 +855,45 @@ ipcMain.on('generate-spoof', (event, config) => {
 });
 
 // ─── معالج البروكسي ───
-ipcMain.on('set-proxy', (event, config) => {
+ipcMain.on('set-proxy', async (event, config) => {
   if (!config || !config.host) {
     proxyConfig = null;
     activeProxyProfileId = null;
     addLog('تم إزالة إعدادات البروكسي', false);
-    applyProxyConfig(null);
+    await applyProxyConfig(null);
     sendProxyUpdate();
+    await waitForProxyAndSyncGeo();
     return;
   }
 
-  proxyConfig = {
-    type: config.type || 'http',
-    host: config.host,
-    port: parseInt(config.port) || 80,
-    username: config.username || '',
-    password: config.password || '',
-    authEnabled: !!config.authEnabled,
-    bypassLocal: config.bypassLocal !== false,
-    bypassRules: config.bypassRules || ''
-  };
+  proxyConfig = buildProxyConfig(config);
 
-  applyProxyConfig(proxyConfig);
+  await applyProxyConfig(proxyConfig);
 
   const displayUrl = `${config.type}://${config.host}:${config.port}`;
   addLog(`✓ تم تعيين البروكسي: ${displayUrl}`, false);
   sendProxyUpdate();
+  await waitForProxyAndSyncGeo();
 });
 
-ipcMain.on('save-proxy-profile', (event, payload) => {
+ipcMain.on('save-proxy-profile', async (event, payload) => {
   if (!payload || !payload.name || !payload.config) return;
+  const normalized = buildProxyConfig(payload.config);
+  if (!normalized) return;
   const profile = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     name: payload.name.trim(),
-    config: payload.config
+    config: normalized
   };
   proxyProfiles.unshift(profile);
   activeProxyProfileId = profile.id;
   proxyConfig = { ...profile.config };
-  applyProxyConfig(proxyConfig);
+  await applyProxyConfig(proxyConfig);
   saveProxyProfiles();
   sendProxyProfilesUpdate();
   sendProxyUpdate();
   addLog(`تم حفظ بروكسي جديد: ${profile.name}`, false);
+  await waitForProxyAndSyncGeo();
 });
 
 ipcMain.on('delete-proxy-profile', (event, profileId) => {
@@ -692,9 +910,14 @@ ipcMain.on('delete-proxy-profile', (event, profileId) => {
   }
 });
 
-ipcMain.on('select-proxy-profile', (event, profileId) => {
+ipcMain.on('select-proxy-profile', async (event, profileId) => {
   if (!profileId) return;
-  selectProxyProfile(profileId);
+  await selectProxyProfile(profileId);
+});
+
+ipcMain.handle('test-proxy', async (event, config) => {
+  const normalized = buildProxyConfig(config);
+  return testProxyConnection(normalized);
 });
 
 // ─── إعدادات الخصوصية ───
@@ -731,9 +954,10 @@ ipcMain.handle('import-settings', async () => {
     sendSpoofUpdate();
   }
   if (parsed.proxy !== undefined) {
-    proxyConfig = parsed.proxy;
-    applyProxyConfig(proxyConfig);
+    proxyConfig = parsed.proxy ? buildProxyConfig(parsed.proxy) : null;
+    await applyProxyConfig(proxyConfig);
     sendProxyUpdate();
+    await waitForProxyAndSyncGeo();
   }
   if (parsed.privacy) {
     updatePrivacySettings(parsed.privacy);

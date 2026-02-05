@@ -11,14 +11,28 @@ let spoofState = {
   deviceMemory: 8,
   screenWidth: 1920,
   screenHeight: 1080,
+  screenAvailWidth: 1920,
+  screenAvailHeight: 1040,
+  colorDepth: 24,
+  devicePixelRatio: 1,
   timezone: 'UTC',
   language: 'en-US',
+  languages: ['en-US', 'en'],
   platform: 'Win32',
   vendor: 'Google Inc.',
   deviceModel: 'PC',
   connection: { effectiveType: '4g', downlink: 10, rtt: 120, saveData: false },
+  doNotTrack: '1',
+  maxTouchPoints: 0,
+  webdriver: false,
   tlsVersion: 'TLSv1.3',
   tlsCipher: 'TLS_AES_256_GCM_SHA384'
+};
+
+const webrtcState = {
+  publicIp: '',
+  errorInjected: false,
+  initialized: false
 };
 
 contextBridge.exposeInMainWorld('api', {
@@ -34,6 +48,7 @@ contextBridge.exposeInMainWorld('api', {
   clearData:         ()       => ipcRenderer.send('clear-data'),
   exportSettings:    ()       => ipcRenderer.invoke('export-settings'),
   importSettings:    ()       => ipcRenderer.invoke('import-settings'),
+  testProxy:         (cfg)    => ipcRenderer.invoke('test-proxy', cfg),
   updateSpoofState:  (state)  => { spoofState = { ...spoofState, ...state }; applySpoof(); },
   onGeoUpdate:       (cb)     => ipcRenderer.on('geo-update', (_, data) => cb(data)),
   onSpoofUpdate:     (cb)     => ipcRenderer.on('spoof-update', (_, data) => cb(data)),
@@ -59,9 +74,29 @@ function applySpoof() {
   Object.defineProperty(Intl, 'DateTimeFormat', {
     value: new Proxy(Intl.DateTimeFormat, {
       construct(target, args) {
-        return new target(spoofState.language, args[1]);
+        const options = { ...(args?.[1] || {}), timeZone: spoofState.timezone };
+        return new target(spoofState.language, options);
+      },
+      get(target, prop) {
+        if (prop === 'resolvedOptions') {
+          return () => ({
+            locale: spoofState.language,
+            timeZone: spoofState.timezone
+          });
+        }
+        return target[prop];
       }
     }),
+    configurable: true
+  });
+
+  Object.defineProperty(navigator, 'language', {
+    get: () => spoofState.language,
+    configurable: true
+  });
+
+  Object.defineProperty(navigator, 'languages', {
+    get: () => spoofState.languages || [spoofState.language],
     configurable: true
   });
 
@@ -86,6 +121,21 @@ function applySpoof() {
     configurable: true
   });
 
+  Object.defineProperty(navigator, 'doNotTrack', {
+    get: () => spoofState.doNotTrack,
+    configurable: true
+  });
+
+  Object.defineProperty(navigator, 'maxTouchPoints', {
+    get: () => spoofState.maxTouchPoints,
+    configurable: true
+  });
+
+  Object.defineProperty(navigator, 'webdriver', {
+    get: () => spoofState.webdriver,
+    configurable: true
+  });
+
   // تزوير Screen
   Object.defineProperty(screen, 'width', { 
     get: () => spoofState.screenWidth,
@@ -94,6 +144,52 @@ function applySpoof() {
   
   Object.defineProperty(screen, 'height', { 
     get: () => spoofState.screenHeight,
+    configurable: true
+  });
+
+  Object.defineProperty(screen, 'availWidth', {
+    get: () => spoofState.screenAvailWidth,
+    configurable: true
+  });
+
+  Object.defineProperty(screen, 'availHeight', {
+    get: () => spoofState.screenAvailHeight,
+    configurable: true
+  });
+
+  Object.defineProperty(screen, 'colorDepth', {
+    get: () => spoofState.colorDepth,
+    configurable: true
+  });
+
+  Object.defineProperty(window, 'devicePixelRatio', {
+    get: () => spoofState.devicePixelRatio,
+    configurable: true
+  });
+
+  const fakePlugins = [
+    { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+    { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+    { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' }
+  ];
+
+  const fakeMimeTypes = [
+    { type: 'application/pdf', suffixes: 'pdf', description: 'Portable Document Format' },
+    { type: 'application/x-google-chrome-pdf', suffixes: 'pdf', description: 'Portable Document Format' },
+    { type: 'application/x-nacl', suffixes: '', description: 'Native Client Executable' },
+    { type: 'application/x-pnacl', suffixes: '', description: 'Portable Native Client Executable' }
+  ];
+
+  const pluginArray = Object.assign([], fakePlugins);
+  const mimeTypeArray = Object.assign([], fakeMimeTypes);
+  Object.defineProperty(pluginArray, 'length', { value: fakePlugins.length });
+  Object.defineProperty(mimeTypeArray, 'length', { value: fakeMimeTypes.length });
+  Object.defineProperty(navigator, 'plugins', {
+    get: () => pluginArray,
+    configurable: true
+  });
+  Object.defineProperty(navigator, 'mimeTypes', {
+    get: () => mimeTypeArray,
     configurable: true
   });
 
@@ -151,5 +247,110 @@ ipcRenderer.on('apply-spoof', (event, state) => {
   applySpoof();
 });
 
+ipcRenderer.on('webrtc-ip-update', (event, ip) => {
+  if (ip && typeof ip === 'string') {
+    webrtcState.publicIp = ip;
+  }
+});
+
 // تطبيق التزوير الأولي
 applySpoof();
+
+// ─── تزوير WebRTC ───
+function rewriteSdp(sdp) {
+  if (!webrtcState.publicIp || !sdp) return sdp;
+  const ipPattern = /(\d{1,3}\.){3}\d{1,3}/g;
+  return sdp.replace(ipPattern, webrtcState.publicIp);
+}
+
+function wrapCandidate(candidate) {
+  if (!candidate || !webrtcState.publicIp) return candidate;
+  return candidate.replace(/(\d{1,3}\.){3}\d{1,3}/g, webrtcState.publicIp);
+}
+
+function createWebRTCProxy(RTCPeerConnectionClass) {
+  if (!RTCPeerConnectionClass) return null;
+  return new Proxy(RTCPeerConnectionClass, {
+    construct(target, args) {
+      if (!webrtcState.initialized) {
+        webrtcState.initialized = true;
+        webrtcState.errorInjected = true;
+      }
+      const pc = new target(...args);
+
+      const originalCreateOffer = pc.createOffer?.bind(pc);
+      if (originalCreateOffer) {
+        pc.createOffer = (...offerArgs) => {
+          if (webrtcState.errorInjected) {
+            webrtcState.errorInjected = false;
+            return Promise.reject(new Error('WebRTC temporarily unavailable'));
+          }
+          return originalCreateOffer(...offerArgs);
+        };
+      }
+
+      const originalSetLocalDescription = pc.setLocalDescription?.bind(pc);
+      if (originalSetLocalDescription) {
+        pc.setLocalDescription = async (desc) => {
+          if (desc?.sdp) {
+            const rewritten = rewriteSdp(desc.sdp);
+            const patchedDesc = new RTCSessionDescription({
+              type: desc.type,
+              sdp: rewritten
+            });
+            return originalSetLocalDescription(patchedDesc);
+          }
+          return originalSetLocalDescription(desc);
+        };
+      }
+
+      const originalAddEventListener = pc.addEventListener.bind(pc);
+      pc.addEventListener = (type, listener, ...rest) => {
+        if (type !== 'icecandidate' || typeof listener !== 'function') {
+          return originalAddEventListener(type, listener, ...rest);
+        }
+        const wrapped = (event) => {
+          if (event?.candidate?.candidate) {
+            const patchedCandidate = new RTCIceCandidate({
+              ...event.candidate,
+              candidate: wrapCandidate(event.candidate.candidate)
+            });
+            const patchedEvent = new Event('icecandidate');
+            Object.defineProperty(patchedEvent, 'candidate', { value: patchedCandidate });
+            return listener(patchedEvent);
+          }
+          return listener(event);
+        };
+        return originalAddEventListener(type, wrapped, ...rest);
+      };
+
+      Object.defineProperty(pc, 'onicecandidate', {
+        set(handler) {
+          if (typeof handler !== 'function') return;
+          const wrapped = (event) => {
+            if (event?.candidate?.candidate) {
+              const patchedCandidate = new RTCIceCandidate({
+                ...event.candidate,
+                candidate: wrapCandidate(event.candidate.candidate)
+              });
+              const patchedEvent = new Event('icecandidate');
+              Object.defineProperty(patchedEvent, 'candidate', { value: patchedCandidate });
+              return handler(patchedEvent);
+            }
+            return handler(event);
+          };
+          originalAddEventListener('icecandidate', wrapped);
+        }
+      });
+
+      return pc;
+    }
+  });
+}
+
+const OriginalRTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+const WebRTCProxy = createWebRTCProxy(OriginalRTCPeerConnection);
+if (WebRTCProxy) {
+  window.RTCPeerConnection = WebRTCProxy;
+  window.webkitRTCPeerConnection = WebRTCProxy;
+}

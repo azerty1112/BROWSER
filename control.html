@@ -148,6 +148,10 @@
           <div class="mb-3 text-sm">
             <button onclick="deleteProxyProfile()" class="btn btn-danger btn-sm w-full">حذف البروكسي المحدد</button>
           </div>
+          <div class="mb-3 text-sm">
+            <input id="proxy-inline" type="text" placeholder="صيغة سريعة: IP:PORT أو IP:PORT:USER:PASS أو socks5://user:pass@ip:port" class="form-input">
+            <div class="text-xs text-gray-400 mt-1">يمكنك اللصق ثم Enter لتعبئة وتفعيل البروكسي تلقائيًا.</div>
+          </div>
           <div class="grid grid-cols-2 gap-3 mb-3">
             <input id="proxy-host" type="text" placeholder="عنوان البروكسي (Host/IP)" class="form-input col-span-2">
             <input id="proxy-port" type="number" placeholder="المنفذ (Port)" class="form-input" value="8080">
@@ -177,9 +181,11 @@
           </div>
           <div class="flex gap-2">
             <button onclick="setProxy()" class="btn btn-success btn-sm flex-1">✓ تفعيل البروكسي</button>
+            <button onclick="testProxy()" class="btn btn-primary btn-sm flex-1">🔍 اختبار البروكسي</button>
             <button onclick="clearProxy()" class="btn btn-danger btn-sm flex-1">✕ إزالة البروكسي</button>
           </div>
           <div id="proxy-status" class="mt-2 text-sm text-gray-400"></div>
+          <div id="proxy-test-status" class="mt-1 text-xs text-gray-400"></div>
         </div>
 
         <div class="section col-span-2">
@@ -328,6 +334,8 @@
       const status = document.getElementById('proxy-status');
       if (!config) {
         status.textContent = 'لم يتم تعيين بروكسي';
+        document.getElementById('proxy-inline').value = '';
+        document.getElementById('proxy-test-status').textContent = '';
         document.getElementById('proxy-auth').checked = false;
         document.getElementById('proxy-bypass-local').checked = true;
         document.getElementById('proxy-bypass').value = '';
@@ -347,6 +355,7 @@
       document.getElementById('proxy-type').value = config.type || 'http';
       document.getElementById('proxy-user').value = config.username || '';
       document.getElementById('proxy-pass').value = '';
+      document.getElementById('proxy-test-status').textContent = '';
     });
 
     window.api.onProxyProfilesUpdate(data => {
@@ -396,13 +405,62 @@
       container.scrollTop = 0;
     });
 
+    function parseInlineProxy(value) {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      try {
+        const normalized = trimmed.includes('://') ? trimmed : `http://${trimmed}`;
+        const url = new URL(normalized);
+        const host = url.hostname;
+        const port = url.port || '';
+        const username = decodeURIComponent(url.username || '');
+        const password = decodeURIComponent(url.password || '');
+        if (!host || !port) return null;
+        const type = url.protocol.replace(':', '') || 'http';
+        return {
+          host,
+          port,
+          username,
+          password,
+          type,
+          authEnabled: !!(username || password)
+        };
+      } catch (err) {
+        const parts = trimmed.split(':');
+        if (parts.length < 2) return null;
+        const [host, port, username = '', password = ''] = parts;
+        if (!host || !port) return null;
+        return {
+          host,
+          port,
+          username,
+          password,
+          type: 'http',
+          authEnabled: !!(username || password)
+        };
+      }
+    }
+
+    function applyInlineProxyToFields() {
+      const inline = parseInlineProxy(document.getElementById('proxy-inline').value);
+      if (!inline) return null;
+      document.getElementById('proxy-host').value = inline.host;
+      document.getElementById('proxy-port').value = inline.port;
+      document.getElementById('proxy-type').value = inline.type || 'http';
+      document.getElementById('proxy-user').value = inline.username || '';
+      document.getElementById('proxy-pass').value = inline.password || '';
+      document.getElementById('proxy-auth').checked = inline.authEnabled;
+      return inline;
+    }
+
     function setProxy() {
+      const inline = applyInlineProxyToFields();
       const host = document.getElementById('proxy-host').value.trim();
       const port = document.getElementById('proxy-port').value.trim();
       const type = document.getElementById('proxy-type').value;
       const username = document.getElementById('proxy-user').value || '';
       const password = document.getElementById('proxy-pass').value || '';
-      const authEnabled = document.getElementById('proxy-auth').checked;
+      const authEnabled = inline?.authEnabled ?? document.getElementById('proxy-auth').checked;
       const bypassLocal = document.getElementById('proxy-bypass-local').checked;
       const bypassRules = document.getElementById('proxy-bypass').value.trim();
 
@@ -417,12 +475,13 @@
 
     function saveProxyProfile() {
       const name = document.getElementById('proxy-profile-name').value.trim();
+      const inline = applyInlineProxyToFields();
       const host = document.getElementById('proxy-host').value.trim();
       const port = document.getElementById('proxy-port').value.trim();
       const type = document.getElementById('proxy-type').value;
       const username = document.getElementById('proxy-user').value || '';
       const password = document.getElementById('proxy-pass').value || '';
-      const authEnabled = document.getElementById('proxy-auth').checked;
+      const authEnabled = inline?.authEnabled ?? document.getElementById('proxy-auth').checked;
       const bypassLocal = document.getElementById('proxy-bypass-local').checked;
       const bypassRules = document.getElementById('proxy-bypass').value.trim();
 
@@ -452,6 +511,7 @@
 
     function clearProxy() {
       api.setProxy(null);
+      document.getElementById('proxy-inline').value = '';
       document.getElementById('proxy-host').value = '';
       document.getElementById('proxy-port').value = 8080;
       document.getElementById('proxy-user').value = '';
@@ -460,6 +520,33 @@
       document.getElementById('proxy-bypass-local').checked = true;
       document.getElementById('proxy-bypass').value = '';
       document.getElementById('proxy-status').textContent = 'لم يتم تعيين بروكسي';
+      document.getElementById('proxy-test-status').textContent = '';
+    }
+
+    async function testProxy() {
+      const inline = applyInlineProxyToFields();
+      const host = document.getElementById('proxy-host').value.trim();
+      const port = document.getElementById('proxy-port').value.trim();
+      const type = document.getElementById('proxy-type').value;
+      const username = document.getElementById('proxy-user').value || '';
+      const password = document.getElementById('proxy-pass').value || '';
+      const authEnabled = inline?.authEnabled ?? document.getElementById('proxy-auth').checked;
+      const bypassLocal = document.getElementById('proxy-bypass-local').checked;
+      const bypassRules = document.getElementById('proxy-bypass').value.trim();
+      const status = document.getElementById('proxy-test-status');
+
+      if (!host || !port) {
+        alert('يرجى إدخال عنوان وبيانات الاتصال');
+        return;
+      }
+
+      status.textContent = 'جارٍ اختبار البروكسي...';
+      const result = await api.testProxy({ host, port, type, username, password, authEnabled, bypassLocal, bypassRules });
+      if (result?.ok) {
+        status.textContent = `✓ نجح الاختبار — IP: ${result.ip} • ${result.country || '?'}`;
+      } else {
+        status.textContent = `✕ فشل الاختبار — ${result?.error || 'خطأ غير معروف'}`;
+      }
     }
 
     function generateRandomSpoof() {
@@ -507,6 +594,15 @@
 
     ['privacy-trackers', 'privacy-ads', 'privacy-cookies'].forEach(id => {
       document.getElementById(id).addEventListener('change', updatePrivacySettings);
+    });
+
+    document.getElementById('proxy-profile-select').addEventListener('change', applyProxyProfile);
+    document.getElementById('proxy-inline').addEventListener('blur', applyInlineProxyToFields);
+    document.getElementById('proxy-inline').addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        setProxy();
+      }
     });
 
     window.api.refreshGeo();
