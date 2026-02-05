@@ -7,11 +7,7 @@
     "start": "electron ."
   },
   "devDependencies": {
-<<<<<<< HEAD
     "electron": "^28.3.3"
-=======
-    "electron": "^40.1.0"
->>>>>>> 6c17ebf (Add files via upload)
   },
   "dependencies": {
     "csv-parser": "^3.0.0",
