@@ -89,8 +89,8 @@ async function fetchGeoData() {
     geoData.lon  = record.location?.longitude || 0;
 
     // Nominatim reverse (اختياري - بطيء نسبياً)
-    if (geoData.lat && geoData.lon) {
-      const nom = await fetch(
+    if (fetchFn && geoData.lat && geoData.lon) {
+      const nom = await fetchFn(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${geoData.lat}&lon=${geoData.lon}&zoom=10`
       ).then(r => r.json());
       geoData.details = nom.address || {};
