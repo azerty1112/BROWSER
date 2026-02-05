@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
+<<<<<<< HEAD
   <title>التحكم</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -37,6 +38,546 @@
       window.api.startBrowser();
     }
 
+=======
+  <title>Super Private Browser - التحكم</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: #111827;
+      color: white;
+    }
+    
+    .form-input {
+      width: 100%;
+      background-color: #374151;
+      color: white;
+      padding: 0.5rem;
+      border-radius: 0.375rem;
+      margin-bottom: 0.5rem;
+      border: 1px solid #4b5563;
+      transition: all 0.3s;
+    }
+    
+    .form-input:focus {
+      border-color: #3b82f6;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .section {
+      background-color: #1f2937;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .section-title {
+      font-size: 1.125rem;
+      font-weight: bold;
+      color: #60a5fa;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .btn {
+      border: none;
+      border-radius: 0.375rem;
+      color: white;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      padding: 0.5rem 1rem;
+    }
+    
+    .btn-primary {
+      background-color: #2563eb;
+    }
+    
+    .btn-primary:hover {
+      background-color: #1d4ed8;
+    }
+    
+    .btn-success {
+      background-color: #16a34a;
+    }
+    
+    .btn-success:hover {
+      background-color: #15803d;
+    }
+    
+    .btn-danger {
+      background-color: #dc2626;
+    }
+    
+    .btn-danger:hover {
+      background-color: #b91c1c;
+    }
+    
+    .btn-sm {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+    }
+    
+    .log-success {
+      color: #4ade80;
+    }
+    
+    .log-error {
+      color: #f87171;
+    }
+    
+    .log-info {
+      color: #60a5fa;
+    }
+  </style>
+</head>
+<body>
+  <div class="h-screen flex flex-col">
+    <!-- العنوان -->
+    <div class="bg-gradient-to-r from-blue-900 to-purple-900 p-4 shadow-lg">
+      <h1 class="text-3xl font-bold">🔒 Super Private Browser</h1>
+      <p class="text-blue-200 text-sm">نافذة التحكم والإعدادات</p>
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        
+        <!-- ─── معلومات الموقع ───  -->
+        <div class="section">
+          <div class="section-title">🌍 معلومات الموقع الجغرافي</div>
+          <div class="space-y-2 text-sm">
+            <p>IP: <span id="geo-ip" class="text-green-400 font-mono">?</span></p>
+            <p>الدولة: <span id="geo-country" class="text-green-400">?</span></p>
+            <p>المدينة: <span id="geo-city" class="text-green-400">?</span></p>
+            <p>الإحداثيات: <span id="geo-coords" class="text-green-400 font-mono">?</span></p>
+          </div>
+          <button onclick="api.refreshGeo()" class="btn btn-primary btn-sm mt-4 w-full">
+            🔄 تحديث البيانات
+          </button>
+        </div>
+
+        <!-- ─── معلومات الجهاز ───  -->
+        <div class="section">
+          <div class="section-title">💻 معلومات الجهاز</div>
+          <div class="space-y-2 text-sm">
+            <p>المعالجات: <span id="spoof-cores" class="text-blue-400">?</span></p>
+            <p>الذاكرة: <span id="spoof-memory" class="text-blue-400">?</span> GB</p>
+            <p>دقة الشاشة: <span id="spoof-screen" class="text-blue-400">?</span></p>
+            <p>اللغة: <span id="spoof-language" class="text-blue-400">?</span></p>
+            <p>المنطقة الزمنية: <span id="spoof-timezone" class="text-blue-400">?</span></p>
+          </div>
+        </div>
+
+        <!-- ─── إعدادات البروكسي ───  -->
+        <div class="section col-span-2">
+          <div class="section-title">🌐 إعدادات البروكسي</div>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <input id="proxy-host" type="text" placeholder="عنوان البروكسي (Host/IP)" class="form-input col-span-2">
+            <input id="proxy-port" type="number" placeholder="المنفذ (Port)" class="form-input" value="8080">
+            <select id="proxy-type" class="form-input">
+              <option value="http">HTTP</option>
+              <option value="https">HTTPS</option>
+              <option value="socks5">SOCKS5</option>
+              <option value="socks4">SOCKS4</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <input id="proxy-user" type="text" placeholder="اسم المستخدم (اختياري)" class="form-input">
+            <input id="proxy-pass" type="password" placeholder="كلمة المرور (اختياري)" class="form-input">
+          </div>
+          <div class="flex gap-2">
+            <button onclick="setProxy()" class="btn btn-success btn-sm flex-1">✓ تفعيل البروكسي</button>
+            <button onclick="clearProxy()" class="btn btn-danger btn-sm flex-1">✕ إزالة البروكسي</button>
+          </div>
+          <div id="proxy-status" class="mt-2 text-sm text-gray-400"></div>
+        </div>
+
+        <!-- ─── إعدادات التزوير (Canvas, WebGL, Fonts) ───  -->
+        <div class="section col-span-2">
+          <div class="section-title">🎭 إعدادات التزوير (Fingerprinting)</div>
+          
+          <div class="space-y-3">
+            <!-- User Agent -->
+            <div>
+              <label class="block text-sm font-medium mb-1">User Agent:</label>
+              <textarea id="spoof-ua" class="form-input h-12" readonly></textarea>
+            </div>
+
+            <!-- Canvas & WebGL -->
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="block text-sm font-medium mb-1">Canvas Noise:</label>
+                <input id="spoof-canvas" type="text" class="form-input" readonly>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">WebGL Vendor:</label>
+                <input id="spoof-webgl-v" type="text" class="form-input" readonly>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">WebGL Renderer:</label>
+                <input id="spoof-webgl-r" type="text" class="form-input" readonly>
+              </div>
+            </div>
+
+            <!-- Fonts -->
+            <div>
+              <label class="block text-sm font-medium mb-1">الخطوط:</label>
+              <input id="spoof-fonts" type="text" class="form-input" readonly>
+            </div>
+
+            <!-- TLS -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium mb-1">إصدار TLS:</label>
+                <input id="spoof-tls-ver" type="text" class="form-input" readonly>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">تشفير TLS:</label>
+                <input id="spoof-tls-ciph" type="text" class="form-input" readonly>
+              </div>
+            </div>
+
+            <!-- أزرار التزوير -->
+            <div class="flex gap-2">
+              <button onclick="generateRandomSpoof()" class="btn btn-primary btn-sm flex-1">
+                🎲 توليد عشوائي
+              </button>
+              <button onclick="generateRandomSpoof(); startBrowser()" class="btn btn-success btn-sm flex-1">
+                ▶ توليد وبدء
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ─── السجلات والأخطاء ───  -->
+      <div class="section col-span-2">
+        <div class="section-title">📋 السجلات والأخطاء</div>
+        <div id="logs-container" class="bg-gray-900 rounded p-3 h-40 overflow-y-auto font-mono text-xs space-y-1 border border-gray-700">
+          <div class="text-gray-500">جارٍ انتظار السجلات...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- الأزرار الرئيسية -->
+    <div class="bg-gray-800 p-4 border-t border-gray-700 flex gap-3 justify-center">
+      <button onclick="startBrowser()" class="btn btn-success px-8 py-3 text-lg">
+        ▶ ابدأ المتصفح
+      </button>
+      <button onclick="clearAllData()" class="btn btn-danger px-8 py-3 text-lg">
+        🗑️ حذف جميع البيانات
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ─── تحديثات الواجهة ───
+    window.api.onGeoUpdate(data => {
+      document.getElementById('geo-ip').textContent = data.ip || '?';
+      document.getElementById('geo-country').textContent = data.country || '?';
+      document.getElementById('geo-city').textContent = data.city || '?';
+      const coords = (data.lat && data.lon) ? `${data.lat.toFixed(4)}, ${data.lon.toFixed(4)}` : '?';
+      document.getElementById('geo-coords').textContent = coords;
+    });
+
+    window.api.onSpoofUpdate(data => {
+      document.getElementById('spoof-ua').value = data.ua || '';
+      document.getElementById('spoof-canvas').value = (data.canvasNoise * 100).toFixed(1) + '%';
+      document.getElementById('spoof-webgl-v').value = data.webglVendor || '';
+      document.getElementById('spoof-webgl-r').value = data.webglRenderer || '';
+      document.getElementById('spoof-fonts').value = (data.fonts || []).join(', ');
+      document.getElementById('spoof-cores').textContent = data.hardwareConcurrency || '?';
+      document.getElementById('spoof-memory').textContent = data.deviceMemory || '?';
+      document.getElementById('spoof-screen').textContent = `${data.screenWidth}x${data.screenHeight}`;
+      document.getElementById('spoof-language').textContent = data.language || '?';
+      document.getElementById('spoof-timezone').textContent = data.timezone || '?';
+      document.getElementById('spoof-tls-ver').value = data.tlsVersion || '';
+      document.getElementById('spoof-tls-ciph').value = data.tlsCipher || '';
+    });
+
+    window.api.onLogUpdate(logs => {
+      const container = document.getElementById('logs-container');
+      if (logs.length === 0) {
+        container.innerHTML = '<div class="text-gray-500">لا توجد سجلات</div>';
+        return;
+      }
+      container.innerHTML = logs.map(log => {
+        const className = log.isError ? 'log-error' : 'log-success';
+        return `<div class="${className}">[${log.time}] ${log.msg}</div>`;
+      }).join('');
+      container.scrollTop = 0;
+    });
+
+    // ─── دوال التحكم ───
+    function setProxy() {
+      const host = document.getElementById('proxy-host').value.trim();
+      const port = document.getElementById('proxy-port').value.trim();
+      const type = document.getElementById('proxy-type').value;
+      const username = document.getElementById('proxy-user').value || '';
+      const password = document.getElementById('proxy-pass').value || '';
+
+      if (!host || !port) {
+        alert('يرجى إدخال عنوان وبيانات الاتصال');
+        return;
+      }
+
+      api.setProxy({ host, port, type, username, password });
+      document.getElementById('proxy-status').textContent = `✓ تم تعيين: ${type}://${host}:${port}`;
+    }
+
+    function clearProxy() {
+      api.setProxy(null);
+      document.getElementById('proxy-host').value = '';
+      document.getElementById('proxy-port').value = 8080;
+      document.getElementById('proxy-user').value = '';
+      document.getElementById('proxy-pass').value = '';
+      document.getElementById('proxy-status').textContent = 'لم يتم تعيين بروكسي';
+    }
+
+    function generateRandomSpoof() {
+      api.generateSpoof({ random: true });
+    }
+
+    function startBrowser() {
+      window.api.startBrowser();
+    }
+
+    function clearAllData() {
+      if (confirm('هل أنت متأكد من رغبتك في حذف جميع البيانات؟')) {
+        api.clearData();
+      }
+    }
+
+    // تحديث أولي
+    window.api.refreshGeo();
+  </script>
+</body>
+</html>
+  <div class="h-screen flex flex-col">
+    <!-- العنوان -->
+    <div class="bg-gradient-to-r from-blue-900 to-purple-900 p-4 shadow-lg">
+      <h1 class="text-3xl font-bold">🔒 Super Private Browser</h1>
+      <p class="text-blue-200 text-sm">نافذة التحكم والإعدادات</p>
+    </div>
+
+    <!-- المحتوى الرئيسي -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        
+        <!-- ─── معلومات الموقع ───  -->
+        <div class="section">
+          <div class="section-title">🌍 معلومات الموقع الجغرافي</div>
+          <div class="space-y-2 text-sm">
+            <p>IP: <span id="geo-ip" class="text-green-400 font-mono">?</span></p>
+            <p>الدولة: <span id="geo-country" class="text-green-400">?</span></p>
+            <p>المدينة: <span id="geo-city" class="text-green-400">?</span></p>
+            <p>الإحداثيات: <span id="geo-coords" class="text-green-400 font-mono">?</span></p>
+          </div>
+          <button onclick="api.refreshGeo()" class="btn-primary btn-sm mt-4 w-full">
+            🔄 تحديث البيانات
+          </button>
+        </div>
+
+        <!-- ─── معلومات الجهاز ───  -->
+        <div class="section">
+          <div class="section-title">💻 معلومات الجهاز</div>
+          <div class="space-y-2 text-sm">
+            <p>المعالجات: <span id="spoof-cores" class="text-blue-400">?</span></p>
+            <p>الذاكرة: <span id="spoof-memory" class="text-blue-400">?</span> GB</p>
+            <p>دقة الشاشة: <span id="spoof-screen" class="text-blue-400">?</span></p>
+            <p>اللغة: <span id="spoof-language" class="text-blue-400">?</span></p>
+            <p>المنطقة الزمنية: <span id="spoof-timezone" class="text-blue-400">?</span></p>
+          </div>
+        </div>
+
+        <!-- ─── إعدادات البروكسي ───  -->
+        <div class="section col-span-2">
+          <div class="section-title">🌐 إعدادات البروكسي</div>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <input id="proxy-host" type="text" placeholder="عنوان البروكسي (Host/IP)" class="form-input col-span-2">
+            <input id="proxy-port" type="number" placeholder="المنفذ (Port)" class="form-input" value="8080">
+            <select id="proxy-type" class="form-input">
+              <option value="http">HTTP</option>
+              <option value="https">HTTPS</option>
+              <option value="socks5">SOCKS5</option>
+              <option value="socks4">SOCKS4</option>
+            </select>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <input id="proxy-user" type="text" placeholder="اسم المستخدم (اختياري)" class="form-input">
+            <input id="proxy-pass" type="password" placeholder="كلمة المرور (اختياري)" class="form-input">
+          </div>
+          <div class="flex gap-2">
+            <button onclick="setProxy()" class="btn-success btn-sm flex-1">✓ تفعيل البروكسي</button>
+            <button onclick="clearProxy()" class="btn-danger btn-sm flex-1">✕ إزالة البروكسي</button>
+          </div>
+          <div id="proxy-status" class="mt-2 text-sm text-gray-400"></div>
+        </div>
+
+        <!-- ─── إعدادات التزوير (Canvas, WebGL, Fonts) ───  -->
+        <div class="section col-span-2">
+          <div class="section-title">🎭 إعدادات التزوير (Fingerprinting)</div>
+          
+          <div class="space-y-3">
+            <!-- User Agent -->
+            <div>
+              <label class="block text-sm font-medium mb-1">User Agent:</label>
+              <textarea id="spoof-ua" class="form-input h-12" readonly></textarea>
+            </div>
+
+            <!-- Canvas & WebGL -->
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="block text-sm font-medium mb-1">Canvas Noise:</label>
+                <input id="spoof-canvas" type="text" class="form-input" readonly>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">WebGL Vendor:</label>
+                <input id="spoof-webgl-v" type="text" class="form-input" readonly>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">WebGL Renderer:</label>
+                <input id="spoof-webgl-r" type="text" class="form-input" readonly>
+              </div>
+            </div>
+
+            <!-- Fonts -->
+            <div>
+              <label class="block text-sm font-medium mb-1">الخطوط:</label>
+              <input id="spoof-fonts" type="text" class="form-input" readonly>
+            </div>
+
+            <!-- TLS -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium mb-1">إصدار TLS:</label>
+                <input id="spoof-tls-ver" type="text" class="form-input" readonly>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">تشفير TLS:</label>
+                <input id="spoof-tls-ciph" type="text" class="form-input" readonly>
+              </div>
+            </div>
+
+            <!-- أزرار التزوير -->
+            <div class="flex gap-2">
+              <button onclick="generateRandomSpoof()" class="btn-primary btn-sm flex-1">
+                🎲 توليد عشوائي
+              </button>
+              <button onclick="generateRandomSpoof(); startBrowser()" class="btn-success btn-sm flex-1">
+                ▶ توليد وبدء
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ─── السجلات والأخطاء ───  -->
+      <div class="section col-span-2">
+        <div class="section-title">📋 السجلات والأخطاء</div>
+        <div id="logs-container" class="bg-gray-900 rounded p-3 h-40 overflow-y-auto font-mono text-xs space-y-1 border border-gray-700">
+          <div class="text-gray-500">جارٍ انتظار السجلات...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- الأزرار الرئيسية -->
+    <div class="bg-gray-800 p-4 border-t border-gray-700 flex gap-3 justify-center">
+      <button onclick="startBrowser()" class="btn-success px-8 py-3 text-lg">
+        ▶ ابدأ المتصفح
+      </button>
+      <button onclick="clearAllData()" class="btn-danger px-8 py-3 text-lg">
+        🗑️ حذف جميع البيانات
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ─── تحديثات الواجهة ───
+    window.api.onGeoUpdate(data => {
+      document.getElementById('geo-ip').textContent = data.ip || '?';
+      document.getElementById('geo-country').textContent = data.country || '?';
+      document.getElementById('geo-city').textContent = data.city || '?';
+      const coords = (data.lat && data.lon) ? `${data.lat.toFixed(4)}, ${data.lon.toFixed(4)}` : '?';
+      document.getElementById('geo-coords').textContent = coords;
+    });
+
+    window.api.onSpoofUpdate(data => {
+      document.getElementById('spoof-ua').value = data.ua || '';
+      document.getElementById('spoof-canvas').value = (data.canvasNoise * 100).toFixed(1) + '%';
+      document.getElementById('spoof-webgl-v').value = data.webglVendor || '';
+      document.getElementById('spoof-webgl-r').value = data.webglRenderer || '';
+      document.getElementById('spoof-fonts').value = (data.fonts || []).join(', ');
+      document.getElementById('spoof-cores').textContent = data.hardwareConcurrency || '?';
+      document.getElementById('spoof-memory').textContent = data.deviceMemory || '?';
+      document.getElementById('spoof-screen').textContent = `${data.screenWidth}x${data.screenHeight}`;
+      document.getElementById('spoof-language').textContent = data.language || '?';
+      document.getElementById('spoof-timezone').textContent = data.timezone || '?';
+      document.getElementById('spoof-tls-ver').value = data.tlsVersion || '';
+      document.getElementById('spoof-tls-ciph').value = data.tlsCipher || '';
+    });
+
+    window.api.onLogUpdate(logs => {
+      const container = document.getElementById('logs-container');
+      if (logs.length === 0) {
+        container.innerHTML = '<div class="text-gray-500">لا توجد سجلات</div>';
+        return;
+      }
+      container.innerHTML = logs.map(log => {
+        const className = log.isError ? 'log-error' : 'log-success';
+        return `<div class="${className}">[${log.time}] ${log.msg}</div>`;
+      }).join('');
+      container.scrollTop = 0;
+    });
+
+    // ─── دوال التحكم ───
+    function setProxy() {
+      const host = document.getElementById('proxy-host').value.trim();
+      const port = document.getElementById('proxy-port').value.trim();
+      const type = document.getElementById('proxy-type').value;
+      const username = document.getElementById('proxy-user').value || '';
+      const password = document.getElementById('proxy-pass').value || '';
+
+      if (!host || !port) {
+        alert('يرجى إدخال عنوان وبيانات الاتصال');
+        return;
+      }
+
+      api.setProxy({ host, port, type, username, password });
+      document.getElementById('proxy-status').textContent = `✓ تم تعيين: ${type}://${host}:${port}`;
+    }
+
+    function clearProxy() {
+      api.setProxy(null);
+      document.getElementById('proxy-host').value = '';
+      document.getElementById('proxy-port').value = 8080;
+      document.getElementById('proxy-user').value = '';
+      document.getElementById('proxy-pass').value = '';
+      document.getElementById('proxy-status').textContent = 'لم يتم تعيين بروكسي';
+    }
+
+    function generateRandomSpoof() {
+      api.generateSpoof({ random: true });
+    }
+
+    function startBrowser() {
+      window.api.startBrowser();
+    }
+
+    function clearAllData() {
+      if (confirm('هل أنت متأكد من رغبتك في حذف جميع البيانات؟')) {
+        api.clearData();
+      }
+    }
+
+>>>>>>> 6c17ebf (Add files via upload)
     // تحديث أولي
     window.api.refreshGeo();
   </script>

@@ -8,6 +8,7 @@
 <body class="bg-gray-900 text-white h-screen overflow-hidden">
   <div class="h-36 bg-gray-800 p-4 flex flex-col gap-4">
     <div class="flex gap-3">
+<<<<<<< HEAD
       <button onclick="api.goBack()"    class="bg-gray-700 px-5 py-3 rounded">←</button>
       <button onclick="api.goForward()" class="bg-gray-700 px-5 py-3 rounded">→</button>
       <button onclick="api.reload()"    class="bg-gray-700 px-5 py-3 rounded">↻</button>
@@ -21,6 +22,64 @@
     <p>البلد: <span id="s-country"></span></p>
     <p>المدينة: <span id="s-city"></span></p>
     <p>إحداثيات: <span id="s-coords"></span></p>
+=======
+      <button onclick="api.goBack()"    class="bg-gray-700 px-5 py-3 rounded hover:bg-gray-600">←</button>
+      <button onclick="api.goForward()" class="bg-gray-700 px-5 py-3 rounded hover:bg-gray-600">→</button>
+      <button onclick="api.reload()"    class="bg-gray-700 px-5 py-3 rounded hover:bg-gray-600">↻</button>
+      <input id="url" class="flex-1 bg-gray-700 p-3 rounded text-lg" placeholder="اكتب رابط أو ابحث..." onkeydown="if(event.key==='Enter') go()">
+    </div>
+
+    <!-- معلومات الموقع -->
+    <div class="grid grid-cols-4 gap-4 text-sm">
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>IP:</strong> <span id="s-ip" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>البلد:</strong> <span id="s-country" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>المدينة:</strong> <span id="s-city" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>إحداثيات:</strong> <span id="s-coords" class="text-green-400">?</span>
+      </div>
+    </div>
+
+    <!-- إعدادات التزوير -->
+    <div class="grid grid-cols-8 gap-2 text-xs">
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>UA:</strong> <span id="s-ua" class="text-green-400 truncate block">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>Canvas:</strong> <span id="s-canvas" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>WebGL V:</strong> <span id="s-webgl-v" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>WebGL R:</strong> <span id="s-webgl-r" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>Fonts:</strong> <span id="s-fonts" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>Cores:</strong> <span id="s-cores" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>Memory:</strong> <span id="s-memory" class="text-green-400">?</span>
+      </div>
+      <div class="bg-gray-700 p-2 rounded">
+        <strong>Screen:</strong> <span id="s-screen" class="text-green-400">?</span>
+      </div>
+    </div>
+
+    <!-- السجلات -->
+    <div class="bg-gray-700 p-2 rounded flex-1 overflow-y-auto">
+      <strong class="block mb-1">السجلات:</strong>
+      <ul id="logs" class="text-xs space-y-1">
+      </ul>
+    </div>
+>>>>>>> 6c17ebf (Add files via upload)
   </div>
 
   <script>
@@ -36,6 +95,31 @@
       document.getElementById('s-city').textContent    = d.city    || '?';
       document.getElementById('s-coords').textContent  = (d.lat && d.lon) ? `${d.lat.toFixed(4)}, ${d.lon.toFixed(4)}` : '?';
     });
+<<<<<<< HEAD
+=======
+
+    window.api.onSpoofUpdate(d => {
+      document.getElementById('s-ua').textContent = d.ua;
+      document.getElementById('s-canvas').textContent = d.canvasNoise;
+      document.getElementById('s-webgl-v').textContent = d.webglVendor;
+      document.getElementById('s-webgl-r').textContent = d.webglRenderer;
+      document.getElementById('s-fonts').textContent = d.fonts.join(', ');
+      document.getElementById('s-cores').textContent = d.hardwareConcurrency;
+      document.getElementById('s-memory').textContent = d.deviceMemory;
+      document.getElementById('s-screen').textContent = `${d.screenWidth}x${d.screenHeight}`;
+    });
+
+    window.api.onLogUpdate(logs => {
+      const ul = document.getElementById('logs');
+      ul.innerHTML = '';
+      logs.forEach(l => {
+        const li = document.createElement('li');
+        li.textContent = `[${l.time}] ${l.msg}`;
+        li.className = l.isError ? 'text-red-400' : 'text-green-400';
+        ul.appendChild(li);
+      });
+    });
+>>>>>>> 6c17ebf (Add files via upload)
   </script>
 </body>
 </html>
