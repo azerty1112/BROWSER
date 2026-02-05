@@ -106,7 +106,11 @@
           <div class="space-y-2 text-sm">
             <p>IP: <span id="geo-ip" class="text-green-400 font-mono">?</span></p>
             <p>الدولة: <span id="geo-country" class="text-green-400">?</span></p>
+            <p>الاسم الكامل: <span id="geo-country-name" class="text-green-400">?</span></p>
+            <p>رمز الدولة: <span id="geo-country-code" class="text-green-400 font-mono">?</span></p>
             <p>المدينة: <span id="geo-city" class="text-green-400">?</span></p>
+            <p>الشارع: <span id="geo-street" class="text-green-400">?</span></p>
+            <p>الرمز البريدي: <span id="geo-zip" class="text-green-400 font-mono">?</span></p>
             <p>الإحداثيات: <span id="geo-coords" class="text-green-400 font-mono">?</span></p>
           </div>
           <button onclick="api.refreshGeo()" class="btn btn-primary btn-sm mt-4 w-full">
@@ -122,11 +126,28 @@
             <p>دقة الشاشة: <span id="spoof-screen" class="text-blue-400">?</span></p>
             <p>اللغة: <span id="spoof-language" class="text-blue-400">?</span></p>
             <p>المنطقة الزمنية: <span id="spoof-timezone" class="text-blue-400">?</span></p>
+            <p>المنصة: <span id="spoof-platform" class="text-blue-400">?</span></p>
+            <p>الشركة: <span id="spoof-vendor" class="text-blue-400">?</span></p>
+            <p>طراز الجهاز: <span id="spoof-device" class="text-blue-400">?</span></p>
+            <p>نوع الاتصال: <span id="spoof-connection" class="text-blue-400">?</span></p>
           </div>
         </div>
 
         <div class="section col-span-2">
           <div class="section-title">🌐 إعدادات البروكسي</div>
+          <div class="grid grid-cols-3 gap-3 mb-3 text-sm">
+            <select id="proxy-profile-select" class="form-input col-span-2">
+              <option value="">اختر بروكسي محفوظ...</option>
+            </select>
+            <button onclick="applyProxyProfile()" class="btn btn-primary btn-sm">تفعيل</button>
+          </div>
+          <div class="grid grid-cols-3 gap-3 mb-3 text-sm">
+            <input id="proxy-profile-name" type="text" placeholder="اسم البروكسي المحفوظ" class="form-input col-span-2">
+            <button onclick="saveProxyProfile()" class="btn btn-success btn-sm">حفظ</button>
+          </div>
+          <div class="mb-3 text-sm">
+            <button onclick="deleteProxyProfile()" class="btn btn-danger btn-sm w-full">حذف البروكسي المحدد</button>
+          </div>
           <div class="grid grid-cols-2 gap-3 mb-3">
             <input id="proxy-host" type="text" placeholder="عنوان البروكسي (Host/IP)" class="form-input col-span-2">
             <input id="proxy-port" type="number" placeholder="المنفذ (Port)" class="form-input" value="8080">
@@ -140,6 +161,19 @@
           <div class="grid grid-cols-2 gap-3 mb-3">
             <input id="proxy-user" type="text" placeholder="اسم المستخدم (اختياري)" class="form-input">
             <input id="proxy-pass" type="password" placeholder="كلمة المرور (اختياري)" class="form-input">
+          </div>
+          <div class="grid grid-cols-2 gap-3 mb-3 text-sm">
+            <label class="flex items-center gap-2">
+              <input id="proxy-auth" type="checkbox" class="accent-blue-500">
+              تفعيل المصادقة
+            </label>
+            <label class="flex items-center gap-2">
+              <input id="proxy-bypass-local" type="checkbox" class="accent-blue-500" checked>
+              استثناء الشبكات المحلية
+            </label>
+          </div>
+          <div class="mb-3">
+            <input id="proxy-bypass" type="text" placeholder="قائمة تجاوز (مثال: example.com, *.local)" class="form-input">
           </div>
           <div class="flex gap-2">
             <button onclick="setProxy()" class="btn btn-success btn-sm flex-1">✓ تفعيل البروكسي</button>
@@ -197,6 +231,46 @@
             </div>
           </div>
         </div>
+
+        <div class="section col-span-2">
+          <div class="section-title">🛡️ إعدادات الخصوصية</div>
+          <div class="grid grid-cols-3 gap-3 text-sm">
+            <label class="flex items-center gap-2">
+              <input id="privacy-trackers" type="checkbox" class="accent-blue-500">
+              حظر المتتبعات
+            </label>
+            <label class="flex items-center gap-2">
+              <input id="privacy-ads" type="checkbox" class="accent-blue-500">
+              حظر الإعلانات
+            </label>
+            <label class="flex items-center gap-2">
+              <input id="privacy-cookies" type="checkbox" class="accent-blue-500">
+              حظر كوكيز الطرف الثالث
+            </label>
+          </div>
+          <div class="text-xs text-gray-400 mt-2">
+            يتم تطبيق التغييرات مباشرة على جلسة التصفح الحالية.
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">⚙️ إدارة الإعدادات</div>
+          <div class="space-y-2 text-sm text-gray-300">
+            <p>قم بحفظ إعداداتك الحالية أو استعادتها لاحقًا.</p>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button onclick="exportSettings()" class="btn btn-primary btn-sm flex-1">⬇️ تصدير</button>
+            <button onclick="importSettings()" class="btn btn-success btn-sm flex-1">⬆️ استيراد</button>
+          </div>
+          <div id="settings-status" class="mt-2 text-xs text-gray-400"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">📡 مراقبة الشبكة</div>
+          <div id="network-container" class="bg-gray-900 rounded p-3 h-40 overflow-y-auto font-mono text-xs space-y-1 border border-gray-700">
+            <div class="text-gray-500">لم يتم رصد طلبات بعد...</div>
+          </div>
+        </div>
       </div>
 
       <div class="section col-span-2">
@@ -221,7 +295,11 @@
     window.api.onGeoUpdate(data => {
       document.getElementById('geo-ip').textContent = data.ip || '?';
       document.getElementById('geo-country').textContent = data.country || '?';
+      document.getElementById('geo-country-name').textContent = data.countryName || '?';
+      document.getElementById('geo-country-code').textContent = data.countryCode || '?';
       document.getElementById('geo-city').textContent = data.city || '?';
+      document.getElementById('geo-street').textContent = data.street || '?';
+      document.getElementById('geo-zip').textContent = data.postcode || '?';
       const coords = (data.lat && data.lon) ? `${data.lat.toFixed(4)}, ${data.lon.toFixed(4)}` : '?';
       document.getElementById('geo-coords').textContent = coords;
     });
@@ -237,8 +315,56 @@
       document.getElementById('spoof-screen').textContent = `${data.screenWidth}x${data.screenHeight}`;
       document.getElementById('spoof-language').textContent = data.language || '?';
       document.getElementById('spoof-timezone').textContent = data.timezone || '?';
+      document.getElementById('spoof-platform').textContent = data.platform || '?';
+      document.getElementById('spoof-vendor').textContent = data.vendor || '?';
+      document.getElementById('spoof-device').textContent = data.deviceModel || '?';
+      const connection = data.connection ? `${data.connection.effectiveType} • ${data.connection.downlink}Mbps` : '?';
+      document.getElementById('spoof-connection').textContent = connection;
       document.getElementById('spoof-tls-ver').value = data.tlsVersion || '';
       document.getElementById('spoof-tls-ciph').value = data.tlsCipher || '';
+    });
+
+    window.api.onProxyUpdate(config => {
+      const status = document.getElementById('proxy-status');
+      if (!config) {
+        status.textContent = 'لم يتم تعيين بروكسي';
+        document.getElementById('proxy-auth').checked = false;
+        document.getElementById('proxy-bypass-local').checked = true;
+        document.getElementById('proxy-bypass').value = '';
+        document.getElementById('proxy-host').value = '';
+        document.getElementById('proxy-port').value = 8080;
+        document.getElementById('proxy-type').value = 'http';
+        document.getElementById('proxy-user').value = '';
+        document.getElementById('proxy-pass').value = '';
+        return;
+      }
+      status.textContent = `✓ تم تعيين: ${config.type}://${config.host}:${config.port}`;
+      document.getElementById('proxy-auth').checked = !!config.authEnabled;
+      document.getElementById('proxy-bypass-local').checked = !!config.bypassLocal;
+      document.getElementById('proxy-bypass').value = config.bypassRules || '';
+      document.getElementById('proxy-host').value = config.host || '';
+      document.getElementById('proxy-port').value = config.port || 8080;
+      document.getElementById('proxy-type').value = config.type || 'http';
+      document.getElementById('proxy-user').value = config.username || '';
+      document.getElementById('proxy-pass').value = '';
+    });
+
+    window.api.onProxyProfilesUpdate(data => {
+      const select = document.getElementById('proxy-profile-select');
+      select.innerHTML = '<option value="">اختر بروكسي محفوظ...</option>';
+      (data?.profiles || []).forEach(profile => {
+        const option = document.createElement('option');
+        option.value = profile.id;
+        option.textContent = profile.name;
+        if (data.activeId === profile.id) option.selected = true;
+        select.appendChild(option);
+      });
+    });
+
+    window.api.onPrivacyUpdate(settings => {
+      document.getElementById('privacy-trackers').checked = !!settings.blockTrackers;
+      document.getElementById('privacy-ads').checked = !!settings.blockAds;
+      document.getElementById('privacy-cookies').checked = !!settings.blockThirdPartyCookies;
     });
 
     window.api.onLogUpdate(logs => {
@@ -254,20 +380,74 @@
       container.scrollTop = 0;
     });
 
+    window.api.onNetworkUpdate(logs => {
+      const container = document.getElementById('network-container');
+      if (!logs || logs.length === 0) {
+        container.innerHTML = '<div class="text-gray-500">لم يتم رصد طلبات بعد...</div>';
+        return;
+      }
+      container.innerHTML = logs.map(log => {
+        const statusClass = log.status === 'blocked' || log.status === 'error'
+          ? 'text-red-400'
+          : 'text-green-400';
+        const reason = log.reason ? ` - ${log.reason}` : '';
+        return `<div><span class="${statusClass}">[${log.time}] ${log.status}</span> <span class="text-blue-300">${log.type || 'other'}</span> ${log.url}${reason}</div>`;
+      }).join('');
+      container.scrollTop = 0;
+    });
+
     function setProxy() {
       const host = document.getElementById('proxy-host').value.trim();
       const port = document.getElementById('proxy-port').value.trim();
       const type = document.getElementById('proxy-type').value;
       const username = document.getElementById('proxy-user').value || '';
       const password = document.getElementById('proxy-pass').value || '';
+      const authEnabled = document.getElementById('proxy-auth').checked;
+      const bypassLocal = document.getElementById('proxy-bypass-local').checked;
+      const bypassRules = document.getElementById('proxy-bypass').value.trim();
 
       if (!host || !port) {
         alert('يرجى إدخال عنوان وبيانات الاتصال');
         return;
       }
 
-      api.setProxy({ host, port, type, username, password });
+      api.setProxy({ host, port, type, username, password, authEnabled, bypassLocal, bypassRules });
       document.getElementById('proxy-status').textContent = `✓ تم تعيين: ${type}://${host}:${port}`;
+    }
+
+    function saveProxyProfile() {
+      const name = document.getElementById('proxy-profile-name').value.trim();
+      const host = document.getElementById('proxy-host').value.trim();
+      const port = document.getElementById('proxy-port').value.trim();
+      const type = document.getElementById('proxy-type').value;
+      const username = document.getElementById('proxy-user').value || '';
+      const password = document.getElementById('proxy-pass').value || '';
+      const authEnabled = document.getElementById('proxy-auth').checked;
+      const bypassLocal = document.getElementById('proxy-bypass-local').checked;
+      const bypassRules = document.getElementById('proxy-bypass').value.trim();
+
+      if (!name || !host || !port) {
+        alert('يرجى إدخال اسم البروكسي والعنوان والمنفذ');
+        return;
+      }
+
+      api.saveProxyProfile({
+        name,
+        config: { host, port, type, username, password, authEnabled, bypassLocal, bypassRules }
+      });
+      document.getElementById('proxy-profile-name').value = '';
+    }
+
+    function applyProxyProfile() {
+      const id = document.getElementById('proxy-profile-select').value;
+      if (!id) return;
+      api.selectProxyProfile(id);
+    }
+
+    function deleteProxyProfile() {
+      const id = document.getElementById('proxy-profile-select').value;
+      if (!id) return;
+      api.deleteProxyProfile(id);
     }
 
     function clearProxy() {
@@ -276,6 +456,9 @@
       document.getElementById('proxy-port').value = 8080;
       document.getElementById('proxy-user').value = '';
       document.getElementById('proxy-pass').value = '';
+      document.getElementById('proxy-auth').checked = false;
+      document.getElementById('proxy-bypass-local').checked = true;
+      document.getElementById('proxy-bypass').value = '';
       document.getElementById('proxy-status').textContent = 'لم يتم تعيين بروكسي';
     }
 
@@ -287,11 +470,44 @@
       window.api.startBrowser();
     }
 
+    function updatePrivacySettings() {
+      const settings = {
+        blockTrackers: document.getElementById('privacy-trackers').checked,
+        blockAds: document.getElementById('privacy-ads').checked,
+        blockThirdPartyCookies: document.getElementById('privacy-cookies').checked
+      };
+      api.setPrivacy(settings);
+    }
+
+    async function exportSettings() {
+      const result = await api.exportSettings();
+      const status = document.getElementById('settings-status');
+      if (result?.canceled) {
+        status.textContent = 'تم إلغاء التصدير';
+        return;
+      }
+      status.textContent = `تم التصدير إلى: ${result.path}`;
+    }
+
+    async function importSettings() {
+      const result = await api.importSettings();
+      const status = document.getElementById('settings-status');
+      if (result?.canceled) {
+        status.textContent = 'تم إلغاء الاستيراد';
+        return;
+      }
+      status.textContent = `تم الاستيراد من: ${result.path}`;
+    }
+
     function clearAllData() {
       if (confirm('هل أنت متأكد من رغبتك في حذف جميع البيانات؟')) {
         api.clearData();
       }
     }
+
+    ['privacy-trackers', 'privacy-ads', 'privacy-cookies'].forEach(id => {
+      document.getElementById(id).addEventListener('change', updatePrivacySettings);
+    });
 
     window.api.refreshGeo();
   </script>

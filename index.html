@@ -37,7 +37,7 @@
           <strong>تزوير:</strong> <span class="status-badge status-active">✓ نشط</span>
         </div>
         <div class="bg-gray-800 p-2 rounded">
-          <strong>خصوصية:</strong> <span class="status-badge status-active">✓ مفعل</span>
+          <strong>خصوصية:</strong> <span id="s-privacy" class="status-badge status-active">✓ مفعل</span>
         </div>
         <div class="bg-gray-800 p-2 rounded">
           <strong>Proxy:</strong> <span id="s-proxy" class="text-gray-400">معطل</span>
@@ -84,7 +84,7 @@
 
     window.api?.onGeoUpdate?.(d => {
       document.getElementById('s-ip').textContent = d.ip || '?';
-      document.getElementById('s-country').textContent = d.country || '?';
+      document.getElementById('s-country').textContent = d.countryName || d.country || '?';
     });
 
     window.api?.onSpoofUpdate?.(d => {
@@ -96,6 +96,29 @@
       document.getElementById('s-fonts').textContent = d.fonts?.[0] || '-';
       document.getElementById('s-cores').textContent = d.hardwareConcurrency || '?';
       document.getElementById('s-screen').textContent = `${d.screenWidth}x${d.screenHeight}`;
+    });
+
+    window.api?.onProxyUpdate?.(config => {
+      const proxyEl = document.getElementById('s-proxy');
+      if (!config) {
+        proxyEl.textContent = 'معطل';
+        proxyEl.className = 'text-gray-400';
+        return;
+      }
+      proxyEl.textContent = `${config.type.toUpperCase()} (${config.host})`;
+      proxyEl.className = 'text-green-400';
+    });
+
+    window.api?.onPrivacyUpdate?.(settings => {
+      const enabled = settings?.blockTrackers || settings?.blockAds || settings?.blockThirdPartyCookies;
+      const badge = document.getElementById('s-privacy');
+      if (!enabled) {
+        badge.textContent = '✕ معطل';
+        badge.className = 'status-badge bg-red-600 text-white';
+        return;
+      }
+      badge.textContent = '✓ مفعل';
+      badge.className = 'status-badge status-active';
     });
   </script>
 </body>

@@ -13,6 +13,10 @@ let spoofState = {
   screenHeight: 1080,
   timezone: 'UTC',
   language: 'en-US',
+  platform: 'Win32',
+  vendor: 'Google Inc.',
+  deviceModel: 'PC',
+  connection: { effectiveType: '4g', downlink: 10, rtt: 120, saveData: false },
   tlsVersion: 'TLSv1.3',
   tlsCipher: 'TLS_AES_256_GCM_SHA384'
 };
@@ -25,12 +29,22 @@ contextBridge.exposeInMainWorld('api', {
   goForward:         ()       => ipcRenderer.send('go-forward'),
   reload:            ()       => ipcRenderer.send('reload'),
   setProxy:          (cfg)    => ipcRenderer.send('set-proxy', cfg),
+  setPrivacy:        (cfg)    => ipcRenderer.send('set-privacy', cfg),
   generateSpoof:     (config) => ipcRenderer.send('generate-spoof', config),
   clearData:         ()       => ipcRenderer.send('clear-data'),
+  exportSettings:    ()       => ipcRenderer.invoke('export-settings'),
+  importSettings:    ()       => ipcRenderer.invoke('import-settings'),
   updateSpoofState:  (state)  => { spoofState = { ...spoofState, ...state }; applySpoof(); },
   onGeoUpdate:       (cb)     => ipcRenderer.on('geo-update', (_, data) => cb(data)),
   onSpoofUpdate:     (cb)     => ipcRenderer.on('spoof-update', (_, data) => cb(data)),
-  onLogUpdate:       (cb)     => ipcRenderer.on('log-update', (_, data) => cb(data))
+  onLogUpdate:       (cb)     => ipcRenderer.on('log-update', (_, data) => cb(data)),
+  onProxyUpdate:     (cb)     => ipcRenderer.on('proxy-update', (_, data) => cb(data)),
+  onProxyProfilesUpdate: (cb) => ipcRenderer.on('proxy-profiles-update', (_, data) => cb(data)),
+  onPrivacyUpdate:   (cb)     => ipcRenderer.on('privacy-update', (_, data) => cb(data)),
+  onNetworkUpdate:   (cb)     => ipcRenderer.on('network-update', (_, data) => cb(data)),
+  saveProxyProfile:  (payload) => ipcRenderer.send('save-proxy-profile', payload),
+  deleteProxyProfile: (id) => ipcRenderer.send('delete-proxy-profile', id),
+  selectProxyProfile: (id) => ipcRenderer.send('select-proxy-profile', id)
 });
 
 // ─── تطبيق التزوير ───
@@ -62,6 +76,16 @@ function applySpoof() {
     configurable: true
   });
 
+  Object.defineProperty(navigator, 'platform', {
+    get: () => spoofState.platform,
+    configurable: true
+  });
+
+  Object.defineProperty(navigator, 'vendor', {
+    get: () => spoofState.vendor,
+    configurable: true
+  });
+
   // تزوير Screen
   Object.defineProperty(screen, 'width', { 
     get: () => spoofState.screenWidth,
@@ -70,6 +94,16 @@ function applySpoof() {
   
   Object.defineProperty(screen, 'height', { 
     get: () => spoofState.screenHeight,
+    configurable: true
+  });
+
+  Object.defineProperty(navigator, 'connection', {
+    get: () => ({
+      effectiveType: spoofState.connection?.effectiveType || '4g',
+      downlink: spoofState.connection?.downlink || 10,
+      rtt: spoofState.connection?.rtt || 120,
+      saveData: !!spoofState.connection?.saveData
+    }),
     configurable: true
   });
 }
