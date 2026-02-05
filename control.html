@@ -162,6 +162,8 @@
               <option value="socks4">SOCKS4</option>
             </select>
           </div>
+          <div class="text-xs text-gray-400 -mt-2 mb-3">المنفذ يجب أن يكون بين 1 و 65535.</div>
+          <div id="proxy-inline-preview" class="text-xs text-gray-500 -mt-2 mb-3"></div>
           <div class="grid grid-cols-2 gap-3 mb-3">
             <input id="proxy-user" type="text" placeholder="اسم المستخدم (اختياري)" class="form-input">
             <input id="proxy-pass" type="password" placeholder="كلمة المرور (اختياري)" class="form-input">
@@ -185,6 +187,7 @@
             <button onclick="clearProxy()" class="btn btn-danger btn-sm flex-1">✕ إزالة البروكسي</button>
           </div>
           <div id="proxy-status" class="mt-2 text-sm text-gray-400"></div>
+          <div id="proxy-validation-status" class="mt-1 text-xs text-amber-400"></div>
           <div id="proxy-test-status" class="mt-1 text-xs text-gray-400"></div>
         </div>
 
@@ -336,6 +339,8 @@
         status.textContent = 'لم يتم تعيين بروكسي';
         document.getElementById('proxy-inline').value = '';
         document.getElementById('proxy-test-status').textContent = '';
+        document.getElementById('proxy-validation-status').textContent = '';
+        document.getElementById('proxy-inline-preview').textContent = '';
         document.getElementById('proxy-auth').checked = false;
         document.getElementById('proxy-bypass-local').checked = true;
         document.getElementById('proxy-bypass').value = '';
@@ -356,6 +361,9 @@
       document.getElementById('proxy-user').value = config.username || '';
       document.getElementById('proxy-pass').value = '';
       document.getElementById('proxy-test-status').textContent = '';
+      document.getElementById('proxy-validation-status').textContent = '';
+      document.getElementById('proxy-inline-preview').textContent =
+        `البروكسي الحالي: ${config.type}://${config.host}:${config.port}`;
     });
 
     window.api.onProxyProfilesUpdate(data => {
@@ -443,6 +451,7 @@
 
     function applyInlineProxyToFields() {
       const inline = parseInlineProxy(document.getElementById('proxy-inline').value);
+      const preview = document.getElementById('proxy-inline-preview');
       if (!inline) return null;
       document.getElementById('proxy-host').value = inline.host;
       document.getElementById('proxy-port').value = inline.port;
@@ -450,7 +459,29 @@
       document.getElementById('proxy-user').value = inline.username || '';
       document.getElementById('proxy-pass').value = inline.password || '';
       document.getElementById('proxy-auth').checked = inline.authEnabled;
+      const authLabel = inline.authEnabled ? 'مع مصادقة' : 'بدون مصادقة';
+      preview.textContent = `تم التعرف على البروكسي: ${inline.type}://${inline.host}:${inline.port} • ${authLabel}`;
       return inline;
+    }
+
+    function validateProxyFields({ host, port }) {
+      const errors = [];
+      const numericPort = Number.parseInt(port, 10);
+      if (!host) errors.push('يرجى إدخال عنوان البروكسي');
+      if (!Number.isInteger(numericPort) || numericPort < 1 || numericPort > 65535) {
+        errors.push('يرجى إدخال منفذ صالح بين 1 و 65535');
+      }
+      return { ok: errors.length === 0, errors, port: numericPort };
+    }
+
+    function setValidationStatus(message = '', tone = 'warn') {
+      const status = document.getElementById('proxy-validation-status');
+      status.textContent = message;
+      status.className = `mt-1 text-xs ${tone === 'ok' ? 'text-green-400' : 'text-amber-400'}`;
+    }
+
+    function clearInlinePreview() {
+      document.getElementById('proxy-inline-preview').textContent = '';
     }
 
     function setProxy() {
@@ -464,13 +495,24 @@
       const bypassLocal = document.getElementById('proxy-bypass-local').checked;
       const bypassRules = document.getElementById('proxy-bypass').value.trim();
 
-      if (!host || !port) {
-        alert('يرجى إدخال عنوان وبيانات الاتصال');
+      const validation = validateProxyFields({ host, port });
+      if (!validation.ok) {
+        setValidationStatus(validation.errors.join(' • '));
         return;
       }
 
-      api.setProxy({ host, port, type, username, password, authEnabled, bypassLocal, bypassRules });
-      document.getElementById('proxy-status').textContent = `✓ تم تعيين: ${type}://${host}:${port}`;
+      api.setProxy({
+        host,
+        port: validation.port,
+        type,
+        username,
+        password,
+        authEnabled,
+        bypassLocal,
+        bypassRules
+      });
+      document.getElementById('proxy-status').textContent = `✓ تم تعيين: ${type}://${host}:${validation.port}`;
+      setValidationStatus('تم إرسال إعدادات البروكسي للتطبيق', 'ok');
     }
 
     function saveProxyProfile() {
@@ -485,16 +527,32 @@
       const bypassLocal = document.getElementById('proxy-bypass-local').checked;
       const bypassRules = document.getElementById('proxy-bypass').value.trim();
 
-      if (!name || !host || !port) {
-        alert('يرجى إدخال اسم البروكسي والعنوان والمنفذ');
+      if (!name) {
+        setValidationStatus('يرجى إدخال اسم البروكسي');
+        return;
+      }
+
+      const validation = validateProxyFields({ host, port });
+      if (!validation.ok) {
+        setValidationStatus(validation.errors.join(' • '));
         return;
       }
 
       api.saveProxyProfile({
         name,
-        config: { host, port, type, username, password, authEnabled, bypassLocal, bypassRules }
+        config: {
+          host,
+          port: validation.port,
+          type,
+          username,
+          password,
+          authEnabled,
+          bypassLocal,
+          bypassRules
+        }
       });
       document.getElementById('proxy-profile-name').value = '';
+      setValidationStatus('تم حفظ البروفايل بنجاح', 'ok');
     }
 
     function applyProxyProfile() {
@@ -521,6 +579,8 @@
       document.getElementById('proxy-bypass').value = '';
       document.getElementById('proxy-status').textContent = 'لم يتم تعيين بروكسي';
       document.getElementById('proxy-test-status').textContent = '';
+      document.getElementById('proxy-validation-status').textContent = '';
+      document.getElementById('proxy-inline-preview').textContent = '';
     }
 
     async function testProxy() {
@@ -535,17 +595,30 @@
       const bypassRules = document.getElementById('proxy-bypass').value.trim();
       const status = document.getElementById('proxy-test-status');
 
-      if (!host || !port) {
-        alert('يرجى إدخال عنوان وبيانات الاتصال');
+      const validation = validateProxyFields({ host, port });
+      if (!validation.ok) {
+        setValidationStatus(validation.errors.join(' • '));
         return;
       }
 
       status.textContent = 'جارٍ اختبار البروكسي...';
-      const result = await api.testProxy({ host, port, type, username, password, authEnabled, bypassLocal, bypassRules });
+      setValidationStatus('جاري التحقق من الاتصال...');
+      const result = await api.testProxy({
+        host,
+        port: validation.port,
+        type,
+        username,
+        password,
+        authEnabled,
+        bypassLocal,
+        bypassRules
+      });
       if (result?.ok) {
         status.textContent = `✓ نجح الاختبار — IP: ${result.ip} • ${result.country || '?'}`;
+        setValidationStatus('الاتصال ناجح ويمكن التفعيل.', 'ok');
       } else {
         status.textContent = `✕ فشل الاختبار — ${result?.error || 'خطأ غير معروف'}`;
+        setValidationStatus('فشل الاختبار. تحقق من البيانات أو اتصال البروكسي.');
       }
     }
 
@@ -597,7 +670,21 @@
     });
 
     document.getElementById('proxy-profile-select').addEventListener('change', applyProxyProfile);
-    document.getElementById('proxy-inline').addEventListener('blur', applyInlineProxyToFields);
+    document.getElementById('proxy-inline').addEventListener('blur', () => {
+      const inline = applyInlineProxyToFields();
+      if (!inline) {
+        clearInlinePreview();
+      }
+    });
+    document.getElementById('proxy-inline').addEventListener('input', () => {
+      const inline = parseInlineProxy(document.getElementById('proxy-inline').value);
+      if (!inline) {
+        clearInlinePreview();
+        return;
+      }
+      document.getElementById('proxy-inline-preview').textContent =
+        `تم التعرف على البروكسي: ${inline.type}://${inline.host}:${inline.port}`;
+    });
     document.getElementById('proxy-inline').addEventListener('keydown', event => {
       if (event.key === 'Enter') {
         event.preventDefault();
