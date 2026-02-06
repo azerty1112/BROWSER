@@ -158,6 +158,7 @@ function createControlWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webRTC: { enabled: false },
       webSecurity: true,
       allowRunningInsecureContent: false,
       safeDialogs: true,
@@ -167,6 +168,7 @@ function createControlWindow() {
 
   controlWin.loadFile('control.html');
   controlWin.removeMenu();
+  registerPermissionHandlers(controlWin.webContents.session);
 
   controlWin.on('closed', () => {
     controlWin = null;
@@ -197,6 +199,7 @@ async function startBrowser() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webRTC: { enabled: false },
       webSecurity: true,
       allowRunningInsecureContent: false,
       safeDialogs: true,
@@ -219,6 +222,7 @@ async function startBrowser() {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      webRTC: { enabled: false },
       webSecurity: true,
       allowRunningInsecureContent: false,
       safeDialogs: true,
@@ -233,12 +237,7 @@ async function startBrowser() {
   });
 
   const sessionRef = mainView.webContents.session;
-  sessionRef.setPermissionRequestHandler((_, permission, callback) => {
-    if (permission === 'media' || permission === 'display-capture') {
-      return callback(false);
-    }
-    return callback(true);
-  });
+  registerPermissionHandlers(sessionRef);
 
   mainWin.setBrowserView(mainView);
   mainView.setBounds({ x: 0, y: 140, width: 1400, height: 760 });
@@ -327,8 +326,38 @@ let activeProxyProfileId = null;
 let privacySettings = {
   blockTrackers: true,
   blockAds: true,
-  blockThirdPartyCookies: true
+  blockThirdPartyCookies: true,
+  blockWebgl: false,
+  aiRequestGuard: true
 };
+
+function registerPermissionHandlers(sessionRef) {
+  if (!sessionRef) return;
+  sessionRef.setPermissionRequestHandler((_, permission, callback) => {
+    if (
+      permission === 'media' ||
+      permission === 'audioCapture' ||
+      permission === 'videoCapture' ||
+      permission === 'display-capture'
+    ) {
+      return callback(false);
+    }
+    return callback(true);
+  });
+  if (sessionRef.setPermissionCheckHandler) {
+    sessionRef.setPermissionCheckHandler((_, permission) => {
+      if (
+        permission === 'media' ||
+        permission === 'audioCapture' ||
+        permission === 'videoCapture' ||
+        permission === 'display-capture'
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }
+}
 
 const WEBGL_VENDORS = [
   { vendor: 'Intel Inc.', renderer: 'Intel Iris OpenGL Engine' },
@@ -733,6 +762,24 @@ function matchesPattern(url, patterns) {
   return patterns.some(pattern => url.includes(pattern));
 }
 
+const AI_SENSITIVE_PARAMS = ['fbclid', 'gclid', 'utm_', 'mc_cid', 'mc_eid', 'yclid'];
+const AI_TRACKING_PATHS = ['/collect', '/pixel', '/beacon', '/track', '/analytics'];
+
+function aiRequestGuard(details) {
+  const { url, resourceType } = details;
+  const lowered = url.toLowerCase();
+  const suspiciousParams = AI_SENSITIVE_PARAMS.some(param => lowered.includes(param));
+  const suspiciousPath = AI_TRACKING_PATHS.some(path => lowered.includes(path));
+  const isBeacon = resourceType === 'beacon' || resourceType === 'ping';
+  if (suspiciousParams || suspiciousPath || isBeacon) {
+    return {
+      block: true,
+      reason: 'حظر بالذكاء الاصطناعي (طلب تتبع)'
+    };
+  }
+  return { block: false, reason: '' };
+}
+
 function shouldBlockRequest(url) {
   if (privacySettings.blockTrackers && matchesPattern(url, TRACKER_PATTERNS)) {
     return 'حظر المتتبعات';
@@ -794,6 +841,19 @@ function registerNetworkHandlers(sessionRef) {
   networkHandlersRegistered = true;
 
   sessionRef.webRequest.onBeforeRequest((details, callback) => {
+    if (privacySettings.aiRequestGuard) {
+      const aiDecision = aiRequestGuard(details);
+      if (aiDecision.block) {
+        addNetworkLog({
+          time: new Date().toLocaleTimeString('ar-EG'),
+          url: details.url,
+          type: details.resourceType,
+          status: 'blocked',
+          reason: aiDecision.reason
+        });
+        return callback({ cancel: true });
+      }
+    }
     const reason = shouldBlockRequest(details.url);
     if (reason) {
       addNetworkLog({

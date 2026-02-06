@@ -32,6 +32,10 @@
       padding: 1.5rem;
       border-radius: 0.5rem;
       margin-bottom: 1.5rem;
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      box-shadow:
+        0 12px 24px rgba(15, 23, 42, 0.45),
+        0 2px 4px rgba(15, 23, 42, 0.6);
     }
 
     .section-title {
@@ -42,6 +46,7 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      text-shadow: 0 1px 0 rgba(15, 23, 42, 0.5);
     }
 
     .btn {
@@ -243,7 +248,7 @@
 
         <div class="section col-span-2">
           <div class="section-title">🛡️ إعدادات الخصوصية</div>
-          <div class="grid grid-cols-3 gap-3 text-sm">
+          <div class="grid grid-cols-5 gap-3 text-sm">
             <label class="flex items-center gap-2">
               <input id="privacy-trackers" type="checkbox" class="accent-blue-500">
               حظر المتتبعات
@@ -256,9 +261,29 @@
               <input id="privacy-cookies" type="checkbox" class="accent-blue-500">
               حظر كوكيز الطرف الثالث
             </label>
+            <label class="flex items-center gap-2">
+              <input id="privacy-webgl" type="checkbox" class="accent-blue-500">
+              تعطيل WebGL
+            </label>
+            <label class="flex items-center gap-2">
+              <input id="privacy-ai-guard" type="checkbox" class="accent-blue-500">
+              حارس الطلبات بالذكاء
+            </label>
           </div>
           <div class="text-xs text-gray-400 mt-2">
             يتم تطبيق التغييرات مباشرة على جلسة التصفح الحالية.
+          </div>
+        </div>
+
+        <div class="section col-span-2">
+          <div class="section-title">🤖 مساعد الخصوصية الذكي</div>
+          <div class="text-sm text-gray-300 space-y-2">
+            <p id="ai-summary">جارٍ تحليل جلسة التصفح الحالية...</p>
+            <ul id="ai-recommendations" class="list-disc list-inside text-xs text-gray-400 space-y-1"></ul>
+          </div>
+          <div class="flex gap-2 mt-3">
+            <button onclick="applyAiHardening()" class="btn btn-primary btn-sm flex-1">⚡ تقوية الخصوصية بالذكاء</button>
+            <button onclick="resetAiInsights()" class="btn btn-danger btn-sm flex-1">🧹 تصفير التحليل</button>
           </div>
         </div>
 
@@ -382,6 +407,8 @@
       document.getElementById('privacy-trackers').checked = !!settings.blockTrackers;
       document.getElementById('privacy-ads').checked = !!settings.blockAds;
       document.getElementById('privacy-cookies').checked = !!settings.blockThirdPartyCookies;
+      document.getElementById('privacy-webgl').checked = !!settings.blockWebgl;
+      document.getElementById('privacy-ai-guard').checked = !!settings.aiRequestGuard;
     });
 
     window.api.onLogUpdate(logs => {
@@ -401,6 +428,7 @@
       const container = document.getElementById('network-container');
       if (!logs || logs.length === 0) {
         container.innerHTML = '<div class="text-gray-500">لم يتم رصد طلبات بعد...</div>';
+        updateAiInsights([]);
         return;
       }
       container.innerHTML = logs.map(log => {
@@ -411,7 +439,81 @@
         return `<div><span class="${statusClass}">[${log.time}] ${log.status}</span> <span class="text-blue-300">${log.type || 'other'}</span> ${log.url}${reason}</div>`;
       }).join('');
       container.scrollTop = 0;
+      updateAiInsights(logs);
     });
+
+    function summarizeDomains(logs) {
+      const counts = new Map();
+      logs.forEach(log => {
+        try {
+          const host = new URL(log.url).hostname;
+          counts.set(host, (counts.get(host) || 0) + 1);
+        } catch (err) {
+          // ignore malformed URLs
+        }
+      });
+      return Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([host, count]) => `${host} (${count})`);
+    }
+
+    function updateAiInsights(logs) {
+      const summary = document.getElementById('ai-summary');
+      const list = document.getElementById('ai-recommendations');
+      if (!summary || !list) return;
+
+      const total = logs.length;
+      const blocked = logs.filter(log => log.status === 'blocked').length;
+      const errors = logs.filter(log => log.status === 'error').length;
+      const trackerHits = logs.filter(log => (log.reason || '').includes('المتتبعات')).length;
+      const adHits = logs.filter(log => (log.reason || '').includes('الإعلانات')).length;
+      const topDomains = summarizeDomains(logs);
+
+      const riskScore = Math.min(100, Math.round((blocked * 2 + errors * 3 + trackerHits * 2 + adHits * 2) / Math.max(1, total) * 100));
+      summary.textContent = total === 0
+        ? 'لا توجد طلبات حتى الآن، سيتم تحديث التحليل تلقائيًا.'
+        : `ملخص الذكاء: تم تحليل ${total} طلبًا • محجوب ${blocked} • أخطاء ${errors} • تقييم مخاطر ${riskScore}/100`;
+
+      const recommendations = [];
+      if (!document.getElementById('privacy-trackers').checked && trackerHits > 0) {
+        recommendations.push('فعّل حظر المتتبعات لتقليل إشارات التتبع.');
+      }
+      if (!document.getElementById('privacy-ads').checked && adHits > 0) {
+        recommendations.push('فعّل حظر الإعلانات لتقليل البصمات الإعلانية.');
+      }
+      if (!document.getElementById('privacy-cookies').checked && total > 15) {
+        recommendations.push('حظر كوكيز الطرف الثالث يقلّل الربط بين المواقع.');
+      }
+      if (!document.getElementById('privacy-webgl').checked && total > 10) {
+        recommendations.push('تعطيل WebGL يمنع تسريب بصمة GPU.');
+      }
+      if (!document.getElementById('privacy-ai-guard').checked && total > 5) {
+        recommendations.push('فعّل حارس الطلبات بالذكاء لحجب روابط التتبع الشائعة تلقائيًا.');
+      }
+      if (topDomains.length) {
+        recommendations.push(`أكثر النطاقات نشاطًا: ${topDomains.join(' • ')}`);
+      }
+      if (!recommendations.length) {
+        recommendations.push('الإعدادات الحالية جيدة — لا توجد توصيات إضافية الآن.');
+      }
+
+      list.innerHTML = recommendations.map(item => `<li>${item}</li>`).join('');
+    }
+
+    function applyAiHardening() {
+      document.getElementById('privacy-trackers').checked = true;
+      document.getElementById('privacy-ads').checked = true;
+      document.getElementById('privacy-cookies').checked = true;
+      document.getElementById('privacy-webgl').checked = true;
+      document.getElementById('privacy-ai-guard').checked = true;
+      updatePrivacySettings();
+    }
+
+    function resetAiInsights() {
+      document.getElementById('ai-summary').textContent = 'تم تصفير التحليل — سيتم إعادة الحساب مع الطلبات القادمة.';
+      document.getElementById('ai-recommendations').innerHTML = '';
+    }
 
     function parseInlineProxy(value) {
       const trimmed = value.trim();
@@ -634,7 +736,9 @@
       const settings = {
         blockTrackers: document.getElementById('privacy-trackers').checked,
         blockAds: document.getElementById('privacy-ads').checked,
-        blockThirdPartyCookies: document.getElementById('privacy-cookies').checked
+        blockThirdPartyCookies: document.getElementById('privacy-cookies').checked,
+        blockWebgl: document.getElementById('privacy-webgl').checked,
+        aiRequestGuard: document.getElementById('privacy-ai-guard').checked
       };
       api.setPrivacy(settings);
     }
@@ -665,7 +769,7 @@
       }
     }
 
-    ['privacy-trackers', 'privacy-ads', 'privacy-cookies'].forEach(id => {
+    ['privacy-trackers', 'privacy-ads', 'privacy-cookies', 'privacy-webgl', 'privacy-ai-guard'].forEach(id => {
       document.getElementById(id).addEventListener('change', updatePrivacySettings);
     });
 
