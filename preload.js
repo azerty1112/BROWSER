@@ -21,6 +21,19 @@ let spoofState = {
   platform: 'Win32',
   vendor: 'Google Inc.',
   deviceModel: 'PC',
+  battery: { charging: true, chargingTime: 0, dischargingTime: Infinity, level: 1 },
+  userAgentData: {
+    brands: [
+      { brand: 'Chromium', version: '120' },
+      { brand: 'Not(A:Brand', version: '24' },
+      { brand: 'Google Chrome', version: '120' }
+    ],
+    mobile: false,
+    platform: 'Windows',
+    architecture: 'x86',
+    bitness: '64',
+    model: ''
+  },
   connection: { effectiveType: '4g', downlink: 10, rtt: 120, saveData: false },
   doNotTrack: '1',
   maxTouchPoints: 0,
@@ -34,6 +47,27 @@ const webrtcState = {
   errorInjected: false,
   initialized: false
 };
+
+const privacyState = {
+  blockWebgl: false
+};
+
+const sessionSeed = (() => {
+  try {
+    const buffer = new Uint32Array(4);
+    crypto.getRandomValues(buffer);
+    return Array.from(buffer).reduce((acc, val) => acc ^ val, 0) || Date.now();
+  } catch (err) {
+    return Math.floor(Math.random() * 0xffffffff);
+  }
+})();
+
+function hashNoise(seed, x, y, channel = 0) {
+  let n = seed ^ (x * 374761393) ^ (y * 668265263) ^ (channel * 362437);
+  n = (n ^ (n >>> 13)) * 1274126177;
+  n = (n ^ (n >>> 16)) >>> 0;
+  return (n / 4294967296) - 0.5;
+}
 
 contextBridge.exposeInMainWorld('api', {
   startBrowser:      ()       => ipcRenderer.send('start-browser'),
@@ -167,6 +201,36 @@ function applySpoof() {
     configurable: true
   });
 
+  if (navigator.userAgentData) {
+    Object.defineProperty(navigator, 'userAgentData', {
+      get: () => {
+        const base = spoofState.userAgentData || {};
+        return {
+          brands: base.brands || [],
+          mobile: !!base.mobile,
+          platform: base.platform || 'Windows',
+          getHighEntropyValues: async (hints) => {
+            const values = {
+              architecture: base.architecture || 'x86',
+              bitness: base.bitness || '64',
+              model: base.model || '',
+              platform: base.platform || 'Windows',
+              platformVersion: '10.0.0',
+              uaFullVersion: (base.brands?.find(b => b.brand === 'Google Chrome')?.version || '120') + '.0.0.0',
+              fullVersionList: base.brands || []
+            };
+            if (!Array.isArray(hints)) return values;
+            return hints.reduce((acc, key) => {
+              if (key in values) acc[key] = values[key];
+              return acc;
+            }, {});
+          }
+        };
+      },
+      configurable: true
+    });
+  }
+
   const fakePlugins = [
     { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
     { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
@@ -202,26 +266,89 @@ function applySpoof() {
     }),
     configurable: true
   });
+
+  if (navigator.getBattery) {
+    const batteryState = spoofState.battery || {};
+    navigator.getBattery = () =>
+      Promise.resolve({
+        charging: batteryState.charging ?? true,
+        chargingTime: batteryState.chargingTime ?? 0,
+        dischargingTime: batteryState.dischargingTime ?? Infinity,
+        level: batteryState.level ?? 1,
+        onchargingchange: null,
+        onchargingtimechange: null,
+        ondischargingtimechange: null,
+        onlevelchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false
+      });
+  }
 }
 
 // ─── تزوير Canvas مع ضوضاء عشوائية ───
 const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
-HTMLCanvasElement.prototype.toDataURL = function(type) {
-  if (type === 'image/png') {
-    const ctx = this.getContext('2d');
-    for (let x = 0; x < this.width; x += Math.floor(this.width / 10)) {
-      for (let y = 0; y < this.height; y += Math.floor(this.height / 10)) {
-        const imgData = ctx.getImageData(x, y, 1, 1);
-        const data = imgData.data;
-        const noise = spoofState.canvasNoise;
-        data[0] += (Math.random() - 0.5) * 255 * noise;
-        data[1] += (Math.random() - 0.5) * 255 * noise;
-        data[2] += (Math.random() - 0.5) * 255 * noise;
-        ctx.putImageData(imgData, x, y);
-      }
+const originalToBlob = HTMLCanvasElement.prototype.toBlob;
+
+function applyCanvasNoise(ctx, width, height) {
+  if (!ctx || width <= 0 || height <= 0) return () => {};
+  const stepX = Math.max(1, Math.floor(width / 10));
+  const stepY = Math.max(1, Math.floor(height / 10));
+  const restorePixels = [];
+  const noise = spoofState.canvasNoise;
+  const seed = sessionSeed ^ (width * 8191) ^ (height * 131071);
+  for (let x = 0; x < width; x += stepX) {
+    for (let y = 0; y < height; y += stepY) {
+      const imgData = ctx.getImageData(x, y, 1, 1);
+      const original = new Uint8ClampedArray(imgData.data);
+      const data = imgData.data;
+      data[0] = Math.max(0, Math.min(255, data[0] + hashNoise(seed, x, y, 0) * 255 * noise));
+      data[1] = Math.max(0, Math.min(255, data[1] + hashNoise(seed, x, y, 1) * 255 * noise));
+      data[2] = Math.max(0, Math.min(255, data[2] + hashNoise(seed, x, y, 2) * 255 * noise));
+      ctx.putImageData(imgData, x, y);
+      restorePixels.push({ x, y, data: original });
     }
   }
-  return originalToDataURL.call(this, type);
+  return () => {
+    restorePixels.forEach(pixel => {
+      const imgData = ctx.createImageData(1, 1);
+      imgData.data.set(pixel.data);
+      ctx.putImageData(imgData, pixel.x, pixel.y);
+    });
+  };
+}
+
+HTMLCanvasElement.prototype.toDataURL = function(type, ...args) {
+  let restore = null;
+  if (!type || type === 'image/png') {
+    const ctx = this.getContext('2d');
+    restore = applyCanvasNoise(ctx, this.width, this.height);
+  }
+  const result = originalToDataURL.call(this, type, ...args);
+  if (restore) restore();
+  return result;
+};
+
+if (originalToBlob) {
+  HTMLCanvasElement.prototype.toBlob = function(callback, type, ...args) {
+    let restore = null;
+    if (!type || type === 'image/png') {
+      const ctx = this.getContext('2d');
+      restore = applyCanvasNoise(ctx, this.width, this.height);
+    }
+    return originalToBlob.call(this, blob => {
+      if (restore) restore();
+      callback(blob);
+    }, type, ...args);
+  };
+}
+
+const originalGetContext = HTMLCanvasElement.prototype.getContext;
+HTMLCanvasElement.prototype.getContext = function(type, ...args) {
+  if (privacyState.blockWebgl && (type === 'webgl' || type === 'webgl2')) {
+    return null;
+  }
+  return originalGetContext.call(this, type, ...args);
 };
 
 // ─── تزوير WebGL ───
@@ -241,6 +368,23 @@ if (originalGetParameterWG2) {
   };
 }
 
+// ─── تزوير AudioContext ───
+const originalGetChannelData = AudioBuffer.prototype.getChannelData;
+AudioBuffer.prototype.getChannelData = function(channel) {
+  const data = originalGetChannelData.call(this, channel);
+  const copy = new Float32Array(data.length);
+  copy.set(data);
+  const noiseSeed = sessionSeed ^ (channel + 1) * 2654435761;
+  let idx = 0;
+  for (let i = 0; i < copy.length; i += 1) {
+    if (idx >= 1024) idx = 0;
+    const noise = hashNoise(noiseSeed, i, idx, channel) * 1e-5;
+    copy[i] += noise;
+    idx += 1;
+  }
+  return copy;
+};
+
 // ─── تزوير TLS Fingerprint ───
 ipcRenderer.on('apply-spoof', (event, state) => {
   spoofState = { ...spoofState, ...state };
@@ -251,6 +395,10 @@ ipcRenderer.on('webrtc-ip-update', (event, ip) => {
   if (ip && typeof ip === 'string') {
     webrtcState.publicIp = ip;
   }
+});
+
+ipcRenderer.on('privacy-update', (event, settings) => {
+  privacyState.blockWebgl = !!settings?.blockWebgl;
 });
 
 // تطبيق التزوير الأولي
@@ -353,4 +501,16 @@ const WebRTCProxy = createWebRTCProxy(OriginalRTCPeerConnection);
 if (WebRTCProxy) {
   window.RTCPeerConnection = WebRTCProxy;
   window.webkitRTCPeerConnection = WebRTCProxy;
+}
+
+if (navigator.mediaDevices) {
+  const originalEnumerateDevices = navigator.mediaDevices.enumerateDevices?.bind(navigator.mediaDevices);
+  const originalGetUserMedia = navigator.mediaDevices.getUserMedia?.bind(navigator.mediaDevices);
+  if (originalEnumerateDevices) {
+    navigator.mediaDevices.enumerateDevices = () => Promise.resolve([]);
+  }
+  if (originalGetUserMedia) {
+    navigator.mediaDevices.getUserMedia = () =>
+      Promise.reject(new DOMException('WebRTC is blocked', 'NotAllowedError'));
+  }
 }
