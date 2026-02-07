@@ -248,7 +248,7 @@
 
         <div class="section col-span-2">
           <div class="section-title">🛡️ إعدادات الخصوصية</div>
-          <div class="grid grid-cols-5 gap-3 text-sm">
+          <div class="grid grid-cols-6 gap-3 text-sm">
             <label class="flex items-center gap-2">
               <input id="privacy-trackers" type="checkbox" class="accent-blue-500">
               حظر المتتبعات
@@ -264,6 +264,10 @@
             <label class="flex items-center gap-2">
               <input id="privacy-webgl" type="checkbox" class="accent-blue-500">
               تعطيل WebGL
+            </label>
+            <label class="flex items-center gap-2">
+              <input id="privacy-webrtc" type="checkbox" class="accent-blue-500">
+              حظر WebRTC
             </label>
             <label class="flex items-center gap-2">
               <input id="privacy-ai-guard" type="checkbox" class="accent-blue-500">
@@ -408,6 +412,7 @@
       document.getElementById('privacy-ads').checked = !!settings.blockAds;
       document.getElementById('privacy-cookies').checked = !!settings.blockThirdPartyCookies;
       document.getElementById('privacy-webgl').checked = !!settings.blockWebgl;
+      document.getElementById('privacy-webrtc').checked = !!settings.blockWebrtc;
       document.getElementById('privacy-ai-guard').checked = !!settings.aiRequestGuard;
     });
 
@@ -488,6 +493,9 @@
       if (!document.getElementById('privacy-webgl').checked && total > 10) {
         recommendations.push('تعطيل WebGL يمنع تسريب بصمة GPU.');
       }
+      if (!document.getElementById('privacy-webrtc').checked && total > 5) {
+        recommendations.push('حظر WebRTC يقلّل تسريب عناوين IP عبر الاتصالات المباشرة.');
+      }
       if (!document.getElementById('privacy-ai-guard').checked && total > 5) {
         recommendations.push('فعّل حارس الطلبات بالذكاء لحجب روابط التتبع الشائعة تلقائيًا.');
       }
@@ -506,6 +514,7 @@
       document.getElementById('privacy-ads').checked = true;
       document.getElementById('privacy-cookies').checked = true;
       document.getElementById('privacy-webgl').checked = true;
+      document.getElementById('privacy-webrtc').checked = true;
       document.getElementById('privacy-ai-guard').checked = true;
       updatePrivacySettings();
     }
@@ -738,6 +747,7 @@
         blockAds: document.getElementById('privacy-ads').checked,
         blockThirdPartyCookies: document.getElementById('privacy-cookies').checked,
         blockWebgl: document.getElementById('privacy-webgl').checked,
+        blockWebrtc: document.getElementById('privacy-webrtc').checked,
         aiRequestGuard: document.getElementById('privacy-ai-guard').checked
       };
       api.setPrivacy(settings);
@@ -769,7 +779,7 @@
       }
     }
 
-    ['privacy-trackers', 'privacy-ads', 'privacy-cookies', 'privacy-webgl', 'privacy-ai-guard'].forEach(id => {
+    ['privacy-trackers', 'privacy-ads', 'privacy-cookies', 'privacy-webgl', 'privacy-webrtc', 'privacy-ai-guard'].forEach(id => {
       document.getElementById(id).addEventListener('change', updatePrivacySettings);
     });
 

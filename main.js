@@ -342,6 +342,7 @@ let privacySettings = {
   blockAds: true,
   blockThirdPartyCookies: true,
   blockWebgl: false,
+  blockWebrtc: true,
   aiRequestGuard: true
 };
 
