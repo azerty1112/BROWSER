@@ -49,7 +49,8 @@ const webrtcState = {
 };
 
 const privacyState = {
-  blockWebgl: false
+  blockWebgl: false,
+  blockWebrtc: true
 };
 
 const sessionSeed = (() => {
@@ -399,6 +400,7 @@ ipcRenderer.on('webrtc-ip-update', (event, ip) => {
 
 ipcRenderer.on('privacy-update', (event, settings) => {
   privacyState.blockWebgl = !!settings?.blockWebgl;
+  privacyState.blockWebrtc = settings?.blockWebrtc !== false;
 });
 
 // تطبيق التزوير الأولي
@@ -420,6 +422,12 @@ function createWebRTCProxy(RTCPeerConnectionClass) {
   if (!RTCPeerConnectionClass) return null;
   return new Proxy(RTCPeerConnectionClass, {
     construct(target, args) {
+      if (privacyState.blockWebrtc) {
+        const error = typeof DOMException === 'function'
+          ? new DOMException('WebRTC is blocked', 'NotAllowedError')
+          : new Error('WebRTC is blocked');
+        throw error;
+      }
       if (!webrtcState.initialized) {
         webrtcState.initialized = true;
         webrtcState.errorInjected = true;
@@ -506,11 +514,18 @@ if (WebRTCProxy) {
 if (navigator.mediaDevices) {
   const originalEnumerateDevices = navigator.mediaDevices.enumerateDevices?.bind(navigator.mediaDevices);
   const originalGetUserMedia = navigator.mediaDevices.getUserMedia?.bind(navigator.mediaDevices);
-  if (originalEnumerateDevices) {
-    navigator.mediaDevices.enumerateDevices = () => Promise.resolve([]);
-  }
-  if (originalGetUserMedia) {
-    navigator.mediaDevices.getUserMedia = () =>
-      Promise.reject(new DOMException('WebRTC is blocked', 'NotAllowedError'));
-  }
+  navigator.mediaDevices.enumerateDevices = (...args) => {
+    if (privacyState.blockWebrtc) {
+      return Promise.resolve([]);
+    }
+    return originalEnumerateDevices ? originalEnumerateDevices(...args) : Promise.resolve([]);
+  };
+  navigator.mediaDevices.getUserMedia = (...args) => {
+    if (privacyState.blockWebrtc) {
+      return Promise.reject(new DOMException('WebRTC is blocked', 'NotAllowedError'));
+    }
+    return originalGetUserMedia
+      ? originalGetUserMedia(...args)
+      : Promise.reject(new DOMException('WebRTC is blocked', 'NotAllowedError'));
+  };
 }
