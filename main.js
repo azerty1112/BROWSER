@@ -38,6 +38,7 @@ let mainWin = null;
 let mainView = null;
 let geoData = {};
 let networkHandlersRegistered = false;
+let isQuitting = false;
 
 const countries = new Map();
 const countriesByName = new Map();
@@ -143,6 +144,7 @@ async function fetchGeoData(options = {}) {
     if (geoData.ip) {
       controlWin?.webContents.send('webrtc-ip-update', geoData.ip);
       mainWin?.webContents.send('webrtc-ip-update', geoData.ip);
+      mainView?.webContents.send('webrtc-ip-update', geoData.ip);
     }
 
     // إرسال البيانات إلى النوافذ
@@ -179,6 +181,13 @@ function createControlWindow() {
   controlWin.loadFile('control.html');
   controlWin.removeMenu();
   registerPermissionHandlers(controlWin.webContents.session);
+
+  controlWin.on('close', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    controlWin.show();
+    controlWin.focus();
+  });
 
   controlWin.on('closed', () => {
     controlWin = null;
@@ -267,9 +276,6 @@ async function startBrowser() {
 
   mainView.webContents.loadURL('https://www.google.com');
   addLog('تم بدء المتصفح الرئيسي', false);
-
-  // إغلاق نافذة التحكم
-  controlWin?.close();
 }
 
 // ─── عند التشغيل ───
@@ -281,6 +287,10 @@ if (!app || typeof app.whenReady !== 'function') {
 app.whenReady().then(() => {
   loadProxyProfiles();
   createControlWindow();
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('window-all-closed', () => {
@@ -577,12 +587,16 @@ function applyGeoToSpoof(currentGeo) {
 function sendSpoofUpdate() {
   controlWin?.webContents.send('spoof-update', spoofData);
   mainWin?.webContents.send('spoof-update', spoofData);
+  mainView?.webContents.send('spoof-update', spoofData);
   // تطبيق التزوير على preload جميع النوافذ
   [controlWin, mainWin].forEach(win => {
     if (win && win.webContents) {
       win.webContents.send('apply-spoof', spoofData);
     }
   });
+  if (mainView?.webContents) {
+    mainView.webContents.send('apply-spoof', spoofData);
+  }
 }
 
 function sendProxyUpdate() {
@@ -600,6 +614,7 @@ function sendProxyProfilesUpdate() {
 function sendPrivacyUpdate() {
   controlWin?.webContents.send('privacy-update', privacySettings);
   mainWin?.webContents.send('privacy-update', privacySettings);
+  mainView?.webContents.send('privacy-update', privacySettings);
 }
 
 function getCurrentSettings() {

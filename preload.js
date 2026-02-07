@@ -401,6 +401,7 @@ ipcRenderer.on('webrtc-ip-update', (event, ip) => {
 ipcRenderer.on('privacy-update', (event, settings) => {
   privacyState.blockWebgl = !!settings?.blockWebgl;
   privacyState.blockWebrtc = settings?.blockWebrtc !== false;
+  applyWebrtcGuard();
 });
 
 // تطبيق التزوير الأولي
@@ -506,14 +507,31 @@ function createWebRTCProxy(RTCPeerConnectionClass) {
 
 const OriginalRTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection;
 const WebRTCProxy = createWebRTCProxy(OriginalRTCPeerConnection);
-if (WebRTCProxy) {
-  window.RTCPeerConnection = WebRTCProxy;
-  window.webkitRTCPeerConnection = WebRTCProxy;
+const BlockedRTCPeerConnection = OriginalRTCPeerConnection
+  ? new Proxy(OriginalRTCPeerConnection, {
+      construct() {
+        const error = typeof DOMException === 'function'
+          ? new DOMException('WebRTC is blocked', 'NotAllowedError')
+          : new Error('WebRTC is blocked');
+        throw error;
+      }
+    })
+  : null;
+
+function applyWebrtcGuard() {
+  const replacement = privacyState.blockWebrtc ? BlockedRTCPeerConnection : WebRTCProxy;
+  if (replacement) {
+    window.RTCPeerConnection = replacement;
+    window.webkitRTCPeerConnection = replacement;
+  }
 }
+
+applyWebrtcGuard();
 
 if (navigator.mediaDevices) {
   const originalEnumerateDevices = navigator.mediaDevices.enumerateDevices?.bind(navigator.mediaDevices);
   const originalGetUserMedia = navigator.mediaDevices.getUserMedia?.bind(navigator.mediaDevices);
+  const originalGetDisplayMedia = navigator.mediaDevices.getDisplayMedia?.bind(navigator.mediaDevices);
   navigator.mediaDevices.enumerateDevices = (...args) => {
     if (privacyState.blockWebrtc) {
       return Promise.resolve([]);
@@ -528,4 +546,12 @@ if (navigator.mediaDevices) {
       ? originalGetUserMedia(...args)
       : Promise.reject(new DOMException('WebRTC is blocked', 'NotAllowedError'));
   };
+  if (originalGetDisplayMedia) {
+    navigator.mediaDevices.getDisplayMedia = (...args) => {
+      if (privacyState.blockWebrtc) {
+        return Promise.reject(new DOMException('WebRTC is blocked', 'NotAllowedError'));
+      }
+      return originalGetDisplayMedia(...args);
+    };
+  }
 }
