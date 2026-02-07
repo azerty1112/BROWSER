@@ -18,7 +18,7 @@
 </head>
 <body class="bg-gray-900 text-white h-screen overflow-hidden">
   <div class="h-full flex flex-col">
-    <div class="bg-gradient-to-r from-blue-900 to-purple-900 p-3 shadow-lg">
+    <div id="browser-toolbar" class="bg-gradient-to-r from-blue-900 to-purple-900 p-3 shadow-lg">
       <div class="flex gap-3 mb-2">
         <button onclick="window.api?.goBack?.()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">←</button>
         <button onclick="window.api?.goForward?.()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">→</button>
@@ -50,7 +50,7 @@
 
     <div class="flex-1 overflow-hidden"></div>
 
-    <div class="bg-gray-800 border-t border-gray-700 p-3 text-xs">
+    <div id="browser-status" class="bg-gray-800 border-t border-gray-700 p-3 text-xs">
       <div class="grid grid-cols-6 gap-2">
         <div class="bg-gray-700 p-2 rounded">
           <strong>Canvas:</strong> <span id="s-canvas" class="text-blue-400">-</span>
