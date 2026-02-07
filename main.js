@@ -26,6 +26,7 @@ if (!fetchFn) {
 const maxmind = require('maxmind');
 const fs      = require('fs');
 const csv     = require('csv-parser');
+const net     = require('net');
 
 app.enableSandbox();
 app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp');
@@ -79,7 +80,16 @@ async function fetchGeoData(options = {}) {
     const fetcher = sessionRef?.fetch ? (url, opts) => sessionRef.fetch(url, opts) : fetchFn;
     if (!fetcher) throw new Error('fetch is not available');
     await loadCountries();
-    const res = await fetcher('https://api.myip.com');
+    let res;
+    try {
+      res = await fetcher('https://api.myip.com');
+    } catch (err) {
+      if (sessionRef && fetchFn && fetcher !== fetchFn) {
+        res = await fetchFn('https://api.myip.com');
+      } else {
+        throw err;
+      }
+    }
     const data = await res.json();
     geoData.ip = data.ip || 'غير معروف';
     const rawCountry = data.country || '?';
@@ -102,7 +112,7 @@ async function fetchGeoData(options = {}) {
 
     let record = {};
     try {
-      if (fs.existsSync(GEO_DB)) {
+      if (fs.existsSync(GEO_DB) && net.isIP(geoData.ip)) {
         const reader = await maxmind.open(GEO_DB);
         record = reader.get(geoData.ip) || {};
       }
@@ -665,17 +675,27 @@ async function waitForProxyAndSyncGeo() {
   }
   addLog('جاري انتظار تشغيل البروكسي...', false);
   const attempts = 3;
+  let lastError = '';
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const result = await fetchGeoData({ sessionRef, applyToSpoof: true });
     if (result && !result.error) {
       addLog('✓ تم التحقق من البروكسي وتحديث الموقع', false);
       return;
     }
+    lastError = result?.error || '';
     if (attempt < attempts) {
       await new Promise(resolve => setTimeout(resolve, 1500));
     }
   }
   addLog('فشل التحقق من البروكسي بعد عدة محاولات', true);
+  if (proxyConfig && /ERR_SOCKS_CONNECTION_FAILED|ERR_PROXY_CONNECTION_FAILED|ERR_TUNNEL_CONNECTION_FAILED/i.test(lastError)) {
+    addLog('تم تعطيل البروكسي مؤقتاً بسبب فشل الاتصال', true);
+    proxyConfig = null;
+    activeProxyProfileId = null;
+    await applyProxyConfig(null);
+    sendProxyUpdate();
+    sendProxyProfilesUpdate();
+  }
 }
 
 async function selectProxyProfile(profileId) {
