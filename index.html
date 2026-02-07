@@ -20,9 +20,9 @@
   <div class="h-full flex flex-col">
     <div class="bg-gradient-to-r from-blue-900 to-purple-900 p-3 shadow-lg">
       <div class="flex gap-3 mb-2">
-        <button onclick="api.goBack()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">←</button>
-        <button onclick="api.goForward()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">→</button>
-        <button onclick="api.reload()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">↻</button>
+        <button onclick="window.api?.goBack?.()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">←</button>
+        <button onclick="window.api?.goForward?.()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">→</button>
+        <button onclick="window.api?.reload?.()" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm">↻</button>
         <input id="url" class="flex-1 bg-gray-700 p-2 rounded text-white outline-none" placeholder="أدخل رابط..." onkeydown="if(event.key==='Enter') navigate()">
       </div>
 
@@ -78,7 +78,7 @@
     function navigate() {
       const value = document.getElementById('url').value.trim();
       if (value) {
-        api.navigate(value);
+        window.api?.navigate?.(value);
       }
     }
 
