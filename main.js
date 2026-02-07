@@ -215,6 +215,7 @@ async function startBrowser() {
     sendSpoofUpdate();
     sendProxyUpdate();
     sendPrivacyUpdate();
+    updateBrowserViewBounds();
   });
 
   mainView = new BrowserView({
@@ -240,8 +241,11 @@ async function startBrowser() {
   registerPermissionHandlers(sessionRef);
 
   mainWin.setBrowserView(mainView);
-  mainView.setBounds({ x: 0, y: 140, width: 1400, height: 760 });
-  mainView.setAutoResize({ width: true, height: true });
+  updateBrowserViewBounds();
+
+  mainWin.on('resize', () => {
+    updateBrowserViewBounds();
+  });
 
   registerNetworkHandlers(mainView.webContents.session);
   await applyProxyConfig(proxyConfig);
@@ -330,6 +334,31 @@ let privacySettings = {
   blockWebgl: false,
   aiRequestGuard: true
 };
+
+async function updateBrowserViewBounds() {
+  if (!mainWin || !mainView) return;
+  const bounds = mainWin.getContentBounds();
+  let layout = { top: 0, bottom: 0 };
+  try {
+    layout = await mainWin.webContents.executeJavaScript(
+      `(() => {
+        const toolbar = document.getElementById('browser-toolbar');
+        const footer = document.getElementById('browser-status');
+        return {
+          top: toolbar ? toolbar.offsetHeight : 0,
+          bottom: footer ? footer.offsetHeight : 0
+        };
+      })()`,
+      true
+    );
+  } catch (err) {
+    console.warn('Failed to measure layout:', err.message);
+  }
+  const top = Math.max(0, layout?.top || 0);
+  const bottom = Math.max(0, layout?.bottom || 0);
+  const height = Math.max(0, bounds.height - top - bottom);
+  mainView.setBounds({ x: 0, y: top, width: bounds.width, height });
+}
 
 function registerPermissionHandlers(sessionRef) {
   if (!sessionRef) return;
